@@ -1,5 +1,27 @@
 import type { Holding } from "../types";
 
+// A spread of liquid, well-known symbols so people can try the app without
+// having to think up tickers. Broad-market ETFs sit first — they make the
+// clearest starting portfolio.
+const SUGGESTIONS: { ticker: string; name: string }[] = [
+  { ticker: "SPY", name: "S&P 500 ETF" },
+  { ticker: "QQQ", name: "Nasdaq 100 ETF" },
+  { ticker: "VTI", name: "Total US Market ETF" },
+  { ticker: "AGG", name: "US Aggregate Bond ETF" },
+  { ticker: "GLD", name: "Gold ETF" },
+  { ticker: "NVDA", name: "NVIDIA" },
+  { ticker: "AAPL", name: "Apple" },
+  { ticker: "MSFT", name: "Microsoft" },
+  { ticker: "AMZN", name: "Amazon" },
+  { ticker: "GOOGL", name: "Alphabet" },
+  { ticker: "TSLA", name: "Tesla" },
+  { ticker: "BRK-B", name: "Berkshire Hathaway" },
+  { ticker: "JPM", name: "JPMorgan Chase" },
+  { ticker: "JNJ", name: "Johnson & Johnson" },
+  { ticker: "XOM", name: "Exxon Mobil" },
+  { ticker: "KO", name: "Coca-Cola" },
+];
+
 interface Props {
   holdings: Holding[];
   period: string;
@@ -31,6 +53,20 @@ export default function PortfolioBuilder({
     const w = 1 / holdings.length;
     onChange(holdings.map((h) => ({ ...h, weight: Number(w.toFixed(4)) })));
   };
+
+  // Drop a suggested ticker into the first blank row if there is one, otherwise
+  // append it. Either way the weights need rebalancing, which "Equal weight" does.
+  const addSuggestion = (ticker: string) => {
+    if (holdings.some((h) => h.ticker === ticker)) return;
+    const blank = holdings.findIndex((h) => h.ticker.trim() === "");
+    if (blank !== -1) {
+      update(blank, { ticker });
+    } else {
+      onChange([...holdings, { ticker, weight: 0 }]);
+    }
+  };
+
+  const owned = new Set(holdings.map((h) => h.ticker));
 
   return (
     <div className="panel">
@@ -74,6 +110,27 @@ export default function PortfolioBuilder({
       <div className={`weight-total ${balanced ? "ok" : "warn"}`}>
         Total weight: {(totalWeight * 100).toFixed(1)}%
         {!balanced && " — must equal 100%"}
+      </div>
+
+      <div className="suggestions">
+        <span className="suggestions-label">Quick add</span>
+        <div className="chip-row">
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s.ticker}
+              className="chip"
+              title={s.name}
+              disabled={owned.has(s.ticker)}
+              onClick={() => addSuggestion(s.ticker)}
+            >
+              {s.ticker}
+            </button>
+          ))}
+        </div>
+        <p className="suggestions-hint">
+          Any Yahoo Finance symbol works — try <code>^GSPC</code>, <code>BTC-USD</code>, or{" "}
+          <code>VOO</code>. Add a few, then hit Equal weight.
+        </p>
       </div>
 
       <label className="field">
