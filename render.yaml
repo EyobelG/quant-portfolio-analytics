@@ -3,8 +3,24 @@ services:
     name: quant-portfolio-api
     runtime: python
     rootDir: backend
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.3
+
+  - type: web
+    name: quant-portfolio-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Render supplies the API's hostname; the frontend prepends the scheme.
+      - key: VITE_API_BASE
+        fromService:
+          type: web
+          name: quant-portfolio-api
+          property: host

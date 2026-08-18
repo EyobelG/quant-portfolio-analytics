@@ -7,7 +7,12 @@ import PortfolioBuilder from "./components/PortfolioBuilder";
 import WeightsComparison from "./components/WeightsComparison";
 import type { AnalyzeResponse, Holding } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+// Empty in dev (Vite proxies /api to localhost:8000). In production this is the
+// deployed API's address, which Render injects as a bare hostname — so add the
+// scheme when it's missing.
+const RAW_API_BASE = import.meta.env.VITE_API_BASE ?? "";
+const API_BASE =
+  RAW_API_BASE && !/^https?:\/\//.test(RAW_API_BASE) ? `https://${RAW_API_BASE}` : RAW_API_BASE;
 
 const DEFAULT_HOLDINGS: Holding[] = [
   { ticker: "AAPL", weight: 0.25 },

@@ -102,9 +102,14 @@ Returns `metrics`, `optimization` (frontier points, optimal weights, correlation
 
 ## Deployment
 
-The frontend is a static bundle (`npm run build` → `dist/`) deployable to Vercel, Netlify, or any static host. Set `VITE_API_BASE` to the deployed backend URL at build time.
+`render.yaml` is a Render Blueprint that provisions both services and wires them together — the frontend receives the API's hostname automatically via `VITE_API_BASE`, so there is no URL to hardcode.
 
-The backend runs anywhere that supports a Python web service — Render, Railway, Fly.io:
+1. Sign in at [render.com](https://render.com) with GitHub.
+2. **New → Blueprint**, select this repository, and apply.
+
+Render builds `quant-portfolio-api` (Python web service) and `quant-portfolio-web` (static site). On the free tier the API sleeps after ~15 minutes idle, so the first request after a pause takes roughly 50 seconds to wake it.
+
+To deploy elsewhere, the frontend is a plain static bundle (`npm run build` → `dist/`) for Vercel, Netlify, or any static host — set `VITE_API_BASE` to the API's URL at build time. The backend runs on anything that hosts a Python web service, including the included `Dockerfile`:
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port $PORT
