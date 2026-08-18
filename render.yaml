@@ -18,9 +18,8 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
-      # Render supplies the API's hostname; the frontend prepends the scheme.
+      # The browser calls the API directly, so this must be the API's public
+      # URL. Render's `fromService` host property resolves to the internal
+      # private-network name, which does not resolve from a browser.
       - key: VITE_API_BASE
-        fromService:
-          type: web
-          name: quant-portfolio-api
-          property: host
+        value: https://quant-portfolio-api.onrender.com
