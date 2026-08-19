@@ -7,7 +7,9 @@ const LINKEDIN_URL = "https://www.linkedin.com/in/eyobelgebre/";
 const SECTIONS = [
   { id: "metrics", label: "Metrics" },
   { id: "backtest", label: "Backtest" },
+  { id: "risk", label: "Risk" },
   { id: "frontier", label: "Frontier" },
+  { id: "composition", label: "Composition" },
   { id: "allocation", label: "Allocation" },
 ];
 

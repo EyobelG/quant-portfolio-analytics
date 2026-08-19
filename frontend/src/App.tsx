@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import BacktestChart from "./components/BacktestChart";
+import CompositionPanel from "./components/CompositionPanel";
 import CorrelationMatrix from "./components/CorrelationMatrix";
+import DistributionChart from "./components/DistributionChart";
+import DrawdownChart from "./components/DrawdownChart";
 import FrontierChart from "./components/FrontierChart";
 import Header from "./components/Header";
 import Logo from "./components/Logo";
 import MetricsGrid from "./components/MetricsGrid";
 import PortfolioBuilder from "./components/PortfolioBuilder";
 import WeightsComparison from "./components/WeightsComparison";
+import { encodePortfolio, parsePortfolio } from "./share";
 import type { AnalyzeResponse, Holding } from "./types";
 
 // Empty in dev (Vite proxies /api to localhost:8000). In production this is the
@@ -24,20 +28,26 @@ const DEFAULT_HOLDINGS: Holding[] = [
   { ticker: "XOM", weight: 0.15 },
 ];
 
+const shared = parsePortfolio(window.location.search);
+
 export default function App() {
-  const [holdings, setHoldings] = useState<Holding[]>(DEFAULT_HOLDINGS);
-  const [period, setPeriod] = useState("3y");
+  const [holdings, setHoldings] = useState<Holding[]>(shared?.holdings ?? DEFAULT_HOLDINGS);
+  const [period, setPeriod] = useState(shared?.period ?? "3y");
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   // The holdings the current result was computed from — editing the builder
   // afterwards must not retroactively change what the results claim to show.
   const [analyzed, setAnalyzed] = useState<Holding[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [slow, setSlow] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const analyze = async () => {
+  const analyze = useCallback(async () => {
     setLoading(true);
     setError(null);
     const submitted = holdings.filter((h) => h.ticker.trim() !== "");
+    // Keep the address bar in sync so the current portfolio is always linkable.
+    window.history.replaceState(null, "", encodePortfolio(submitted, period));
     try {
       const res = await fetch(`${API_BASE}/api/analyze`, {
         method: "POST",
@@ -55,6 +65,40 @@ export default function App() {
       setResult(null);
     } finally {
       setLoading(false);
+    }
+  }, [holdings, period]);
+
+  // The API sleeps on Render's free tier and takes ~50s to wake. Without this,
+  // a cold start is indistinguishable from the app being broken.
+  useEffect(() => {
+    if (!loading) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 5000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
+  // A shared link should show its results without the visitor pressing anything.
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (shared && !autoRan.current) {
+      autoRan.current = true;
+      analyze();
+    }
+  }, [analyze]);
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}${window.location.pathname}${encodePortfolio(
+      analyzed.length ? analyzed : holdings,
+      period
+    )}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Could not copy — your browser blocked clipboard access.");
     }
   };
 
@@ -96,18 +140,47 @@ export default function App() {
             </div>
           )}
 
-          {loading && <div className="empty-state">Fetching prices and running optimization…</div>}
+          {loading && (
+            <div className="empty-state">
+              {slow ? (
+                <>
+                  <h2>Waking up the server…</h2>
+                  <p>
+                    The API sleeps after 15 minutes idle on the free tier and takes about 50
+                    seconds to start. Subsequent runs are fast.
+                  </p>
+                </>
+              ) : (
+                "Fetching prices and running optimization…"
+              )}
+            </div>
+          )}
 
           {result && (
             <>
+              <div className="results-bar">
+                <span className="results-summary">
+                  {analyzed.length} holdings · {period} lookback
+                </span>
+                <button className="ghost-btn" onClick={copyLink}>
+                  {copied ? "✓ Link copied" : "Copy shareable link"}
+                </button>
+              </div>
               <div id="metrics">
                 <MetricsGrid metrics={result.metrics} />
               </div>
               <div id="backtest">
                 <BacktestChart bt={result.backtest} />
               </div>
+              <div id="risk">
+                <DrawdownChart dd={result.drawdown} />
+                <DistributionChart dist={result.distribution} />
+              </div>
               <div id="frontier">
                 <FrontierChart opt={result.optimization} />
+              </div>
+              <div id="composition">
+                <CompositionPanel comp={result.composition} />
               </div>
               <div className="two-col" id="allocation">
                 <WeightsComparison holdings={analyzed} opt={result.optimization} />

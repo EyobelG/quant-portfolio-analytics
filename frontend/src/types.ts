@@ -38,8 +38,42 @@ export interface Backtest {
   benchmark: number[];
 }
 
+export interface Drawdown {
+  dates: string[];
+  drawdown: number[];
+  max_drawdown: number;
+  max_drawdown_date: string;
+  recovery_days: number | null;
+  longest_underwater_days: number;
+}
+
+export interface Distribution {
+  bin_edges: number[];
+  counts: number[];
+  var_95: number;
+  cvar_95: number;
+  mean: number;
+}
+
+export interface HoldingMeta {
+  ticker: string;
+  weight: number;
+  sector: string | null;
+  name: string | null;
+  dividend_yield: number | null;
+}
+
+export interface Composition {
+  holdings: HoldingMeta[];
+  sector_weights: Record<string, number>;
+  available: boolean;
+}
+
 export interface AnalyzeResponse {
   metrics: Metrics;
   optimization: Optimization;
   backtest: Backtest;
+  drawdown: Drawdown;
+  distribution: Distribution;
+  composition: Composition;
 }

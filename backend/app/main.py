@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.analytics import drawdown_series, return_distribution, sector_weights
 from app.backtest import run_backtest
-from app.data import fetch_prices, fetch_returns
+from app.data import fetch_meta, fetch_prices, fetch_returns
 from app.metrics import compute_metrics, portfolio_returns
 from app.optimize import run_optimization
 from app.schemas import AnalyzeResponse, PortfolioRequest
@@ -48,8 +49,23 @@ def analyze(req: PortfolioRequest):
     optimization = run_optimization(prices, weights)
     backtest = run_backtest(returns, bench_returns, weights, optimization["max_sharpe_weights"])
 
+    # Composition depends on a slower, less reliable upstream endpoint than the
+    # price data, so it must never take the rest of the analysis down with it.
+    try:
+        holdings_meta = [{**fetch_meta(t), "weight": weights[t]} for t in tickers]
+        composition = {
+            "holdings": holdings_meta,
+            "sector_weights": sector_weights(holdings_meta),
+            "available": any(h.get("sector") for h in holdings_meta),
+        }
+    except Exception:
+        composition = {"holdings": [], "sector_weights": {}, "available": False}
+
     return {
         "metrics": metrics,
         "optimization": optimization,
         "backtest": backtest,
+        "drawdown": drawdown_series(port_ret),
+        "distribution": return_distribution(port_ret),
+        "composition": composition,
     }
