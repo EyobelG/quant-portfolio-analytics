@@ -21,6 +21,9 @@ export default function CompositionPanel({ comp }: { comp: Composition }) {
 
   const sectors = Object.entries(comp.sector_weights).map(([name, weight]) => ({ name, weight }));
   const topShare = sectors[0]?.weight ?? 0;
+  // Yields come from an endpoint that is unavailable in some environments; an
+  // always-empty column reads as broken, so only show it when there is data.
+  const hasYields = comp.holdings.some((h) => h.dividend_yield !== null);
 
   return (
     <div className="panel">
@@ -85,7 +88,7 @@ export default function CompositionPanel({ comp }: { comp: Composition }) {
             <th>Asset</th>
             <th>Sector</th>
             <th>Weight</th>
-            <th>Div. yield</th>
+            {hasYields && <th>Div. yield</th>}
           </tr>
         </thead>
         <tbody>
@@ -96,7 +99,9 @@ export default function CompositionPanel({ comp }: { comp: Composition }) {
               </td>
               <td className="muted-cell">{h.sector ?? "—"}</td>
               <td>{pct(h.weight)}</td>
-              <td>{h.dividend_yield === null ? "—" : `${h.dividend_yield.toFixed(2)}%`}</td>
+              {hasYields && (
+                <td>{h.dividend_yield === null ? "—" : `${h.dividend_yield.toFixed(2)}%`}</td>
+              )}
             </tr>
           ))}
         </tbody>

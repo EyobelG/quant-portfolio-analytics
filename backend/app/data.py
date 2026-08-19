@@ -3,6 +3,8 @@ import yfinance as yf
 from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 
+from app import sectors
+
 # Cache price downloads for 1 hour so repeated requests for the same
 # tickers/period don't hammer the yfinance/Yahoo endpoint.
 _price_cache: TTLCache = TTLCache(maxsize=256, ttl=3600)
@@ -83,16 +85,21 @@ def _normalize_yield(raw) -> float | None:
 def fetch_meta(ticker: str) -> dict:
     """Sector, long name, and dividend yield for one ticker.
 
-    Best-effort: this hits a slower, flakier endpoint than the price download,
-    so every failure degrades to empty fields rather than raising. Funds report
-    no sector, so their category is used instead.
+    The static map is the primary source because Yahoo's `.info` endpoint is
+    blocked from datacenter IPs — it works locally and returns nothing in
+    production. `.info` is still consulted to cover symbols outside the map and
+    to supply name and dividend yield, but every failure there degrades to empty
+    fields rather than raising.
     """
+    static_sector = sectors.lookup(ticker)
+
+    info = {}
     try:
         info = yf.Ticker(ticker).info or {}
     except Exception:
-        return {"ticker": ticker, "sector": None, "name": None, "dividend_yield": None}
+        info = {}
 
-    sector = info.get("sector") or info.get("category")
+    sector = static_sector or info.get("sector") or info.get("category")
     if not sector and info.get("quoteType") in {"ETF", "MUTUALFUND", "INDEX"}:
         sector = "Fund / Index"
 
