@@ -701,10 +701,16 @@ select:focus {
 
 .composition-grid {
   display: grid;
-  grid-template-columns: minmax(200px, 300px) 1fr;
-  gap: 20px;
+  grid-template-columns: 230px 1fr;
+  gap: 24px;
   align-items: center;
   margin-bottom: 18px;
+}
+
+/* Grid children default to min-width:auto, which lets wide content force a
+   track wider than its declared size. */
+.composition-grid > * {
+  min-width: 0;
 }
 
 @media (max-width: 700px) {
@@ -715,6 +721,8 @@ select:focus {
 
 .donut-wrap {
   position: relative;
+  width: 230px;
+  height: 230px;
 }
 
 .donut-center {

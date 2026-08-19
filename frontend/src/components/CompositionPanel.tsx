@@ -1,4 +1,4 @@
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import type { Composition } from "../types";
 
 const SECTOR_COLORS = [
@@ -34,32 +34,38 @@ export default function CompositionPanel({ comp }: { comp: Composition }) {
       </p>
 
       <div className="composition-grid">
+        {/* Fixed dimensions rather than ResponsiveContainer: inside a grid track
+            it can measure zero width and render nothing in a production build,
+            where React's dev-only double render is not there to force a
+            re-measure. The donut is a fixed size anyway; the grid stacks on
+            narrow screens. */}
         <div className="donut-wrap">
-          <ResponsiveContainer width="100%" height={230}>
-            <PieChart>
-              <Pie
-                data={sectors}
-                dataKey="weight"
-                nameKey="name"
-                innerRadius={58}
-                outerRadius={92}
-                paddingAngle={2}
-                stroke="none"
-              >
-                {sectors.map((_, i) => (
-                  <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(v: number) => pct(v)}
-                contentStyle={{
-                  background: "#161b26",
-                  border: "1px solid #2a3142",
-                  borderRadius: 8,
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart width={230} height={230}>
+            <Pie
+              data={sectors}
+              dataKey="weight"
+              nameKey="name"
+              cx={115}
+              cy={115}
+              innerRadius={58}
+              outerRadius={92}
+              paddingAngle={2}
+              stroke="none"
+              isAnimationActive={false}
+            >
+              {sectors.map((_, i) => (
+                <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(v: number) => pct(v)}
+              contentStyle={{
+                background: "#161b26",
+                border: "1px solid #2a3142",
+                borderRadius: 8,
+              }}
+            />
+          </PieChart>
           <div className="donut-center">
             <span className="donut-value">{pct(topShare)}</span>
             <span className="donut-label">largest sector</span>
