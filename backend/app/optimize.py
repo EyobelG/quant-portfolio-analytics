@@ -11,9 +11,13 @@ def _point(ret: float, vol: float) -> dict:
     return {"return": ret, "volatility": vol, "sharpe": _sharpe(ret, vol)}
 
 
-def run_optimization(prices: pd.DataFrame, current_weights: dict[str, float]) -> dict:
-    mu = expected_returns.mean_historical_return(prices)
-    S = risk_models.sample_cov(prices)
+def run_optimization(
+    prices: pd.DataFrame, current_weights: dict[str, float], periods_per_year: int = 252
+) -> dict:
+    # frequency must match the trading calendar, or the frontier is drawn in
+    # different units than the metrics beside it.
+    mu = expected_returns.mean_historical_return(prices, frequency=periods_per_year)
+    S = risk_models.sample_cov(prices, frequency=periods_per_year)
 
     # Max Sharpe portfolio
     ef_sharpe = EfficientFrontier(mu, S)

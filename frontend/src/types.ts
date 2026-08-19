@@ -69,7 +69,14 @@ export interface Composition {
   available: boolean;
 }
 
+export interface TradingCalendar {
+  periods_per_year: number;
+  has_crypto: boolean;
+  mixed: boolean;
+}
+
 export interface AnalyzeResponse {
+  calendar: TradingCalendar;
   metrics: Metrics;
   optimization: Optimization;
   backtest: Backtest;

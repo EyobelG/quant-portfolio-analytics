@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import sectors
 from app.analytics import drawdown_series, return_distribution, sector_weights
 from app.backtest import run_backtest
 from app.data import fetch_meta, fetch_prices, fetch_returns
@@ -44,9 +45,10 @@ def analyze(req: PortfolioRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+    periods = sectors.periods_per_year(tickers)
     port_ret = portfolio_returns(returns, weights)
-    metrics = compute_metrics(port_ret, bench_returns)
-    optimization = run_optimization(prices, weights)
+    metrics = compute_metrics(port_ret, bench_returns, periods)
+    optimization = run_optimization(prices, weights, periods)
     backtest = run_backtest(returns, bench_returns, weights, optimization["max_sharpe_weights"])
 
     # Composition depends on a slower, less reliable upstream endpoint than the
@@ -61,7 +63,14 @@ def analyze(req: PortfolioRequest):
     except Exception:
         composition = {"holdings": [], "sector_weights": {}, "available": False}
 
+    crypto = [t for t in tickers if sectors.is_crypto(t)]
+
     return {
+        "calendar": {
+            "periods_per_year": periods,
+            "has_crypto": bool(crypto),
+            "mixed": bool(crypto) and len(crypto) < len(tickers),
+        },
         "metrics": metrics,
         "optimization": optimization,
         "backtest": backtest,

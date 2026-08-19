@@ -1,5 +1,6 @@
 import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import type { Composition } from "../types";
+import AssetIcon from "./AssetIcon";
 
 const SECTOR_COLORS = [
   "#4f7cff",
@@ -101,7 +102,10 @@ export default function CompositionPanel({ comp }: { comp: Composition }) {
           {comp.holdings.map((h) => (
             <tr key={h.ticker}>
               <td className="ticker-cell" title={h.name ?? undefined}>
-                {h.ticker}
+                <span className="asset-cell">
+                  <AssetIcon ticker={h.ticker} sector={h.sector} />
+                  {h.ticker}
+                </span>
               </td>
               <td className="muted-cell">{h.sector ?? "—"}</td>
               <td>{pct(h.weight)}</td>

@@ -44,12 +44,20 @@ def fetch_prices(tickers: tuple[str, ...], period: str = "3y") -> pd.DataFrame:
     else:
         prices = data["Close"].to_frame(name=tickers[0])
 
-    prices = prices.ffill().dropna(how="all")
     missing = [t for t in tickers if t not in prices.columns or prices[t].isna().all()]
     if missing:
         raise ValueError(f"No price data found for: {', '.join(missing)}")
 
-    return prices.dropna()
+    # Crypto trades daily, equities do not. Forward-filling a stock across a
+    # weekend invents flat days that depress its measured volatility and pull
+    # correlations toward zero, so when the two are mixed, restrict everything to
+    # the days the equities actually traded.
+    equities = [t for t in prices.columns if not sectors.is_crypto(t)]
+    if equities:
+        trading_days = prices[equities].dropna(how="any").index
+        prices = prices.loc[trading_days]
+
+    return prices.ffill().dropna()
 
 
 def fetch_returns(tickers: tuple[str, ...], period: str = "3y") -> pd.DataFrame:

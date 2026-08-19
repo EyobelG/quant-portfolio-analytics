@@ -20,6 +20,9 @@ const SUGGESTIONS: { ticker: string; name: string }[] = [
   { ticker: "JNJ", name: "Johnson & Johnson" },
   { ticker: "XOM", name: "Exxon Mobil" },
   { ticker: "KO", name: "Coca-Cola" },
+  { ticker: "BTC-USD", name: "Bitcoin" },
+  { ticker: "ETH-USD", name: "Ethereum" },
+  { ticker: "SOL-USD", name: "Solana" },
 ];
 
 interface Props {

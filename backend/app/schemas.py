@@ -82,7 +82,14 @@ class Composition(BaseModel):
     available: bool = True
 
 
+class TradingCalendar(BaseModel):
+    periods_per_year: int
+    has_crypto: bool
+    mixed: bool  # crypto held alongside assets that do not trade daily
+
+
 class AnalyzeResponse(BaseModel):
+    calendar: TradingCalendar
     metrics: MetricsResponse
     optimization: OptimizeResponse
     backtest: BacktestSeries

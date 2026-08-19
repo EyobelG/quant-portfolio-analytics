@@ -166,6 +166,14 @@ export default function App() {
                   {copied ? "✓ Link copied" : "Copy shareable link"}
                 </button>
               </div>
+              {result.calendar.has_crypto && (
+                <div className="calendar-note">
+                  <strong>₿ Crypto detected.</strong>{" "}
+                  {result.calendar.mixed
+                    ? "Crypto trades daily while equities do not, so returns are aligned to the 252-day equity calendar — forward-filling stocks across weekends would invent flat days and understate their volatility."
+                    : "All holdings trade every day, so figures are annualized over 365 days rather than the 252-day equity calendar."}
+                </div>
+              )}
               <div id="metrics">
                 <MetricsGrid metrics={result.metrics} />
               </div>

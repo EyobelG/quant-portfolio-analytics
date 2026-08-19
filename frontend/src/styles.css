@@ -654,6 +654,39 @@ select:focus {
   color: var(--muted);
 }
 
+.calendar-note {
+  background: rgba(247, 147, 26, 0.07);
+  border: 1px solid rgba(247, 147, 26, 0.3);
+  border-radius: 8px;
+  padding: 11px 14px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.calendar-note strong {
+  color: #f7931a;
+}
+
+/* ---------- Asset icons ---------- */
+
+.asset-icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.asset-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
 /* ---------- Drawdown stat strip ---------- */
 
 .stat-strip {

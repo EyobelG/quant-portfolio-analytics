@@ -148,3 +148,23 @@ SECTORS: dict[str, str] = {
 
 def lookup(ticker: str) -> str | None:
     return SECTORS.get(ticker.upper())
+
+
+# yfinance names crypto pairs against a fiat quote currency: BTC-USD, ETH-EUR.
+# Equity tickers that contain a dash (BRK-B) never end in one of these.
+_CRYPTO_QUOTES = ("-USD", "-EUR", "-GBP", "-USDT", "-BUSD")
+
+
+def is_crypto(ticker: str) -> bool:
+    return ticker.upper().endswith(_CRYPTO_QUOTES)
+
+
+# Crypto trades every day; equities trade roughly 252 days a year. Annualizing
+# with the wrong figure silently misstates volatility and every ratio built on it.
+CRYPTO_PERIODS = 365
+EQUITY_PERIODS = 252
+
+
+def periods_per_year(tickers) -> int:
+    """A portfolio holding any equity is limited to the equity calendar."""
+    return CRYPTO_PERIODS if all(is_crypto(t) for t in tickers) else EQUITY_PERIODS
