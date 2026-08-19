@@ -23,6 +23,7 @@ export interface FrontierPoint {
 
 export interface Optimization {
   frontier: FrontierPoint[];
+  max_sharpe_available: boolean;
   max_sharpe_weights: Record<string, number>;
   max_sharpe_point: FrontierPoint;
   min_vol_weights: Record<string, number>;

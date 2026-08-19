@@ -35,6 +35,9 @@ class EfficientFrontierPoint(BaseModel):
 
 class OptimizeResponse(BaseModel):
     frontier: list[EfficientFrontierPoint]
+    # False when no allocation beat the risk-free rate over the window, so the
+    # minimum-volatility portfolio stands in for the max-Sharpe one.
+    max_sharpe_available: bool = True
     max_sharpe_weights: dict[str, float]
     max_sharpe_point: EfficientFrontierPoint
     min_vol_weights: dict[str, float]

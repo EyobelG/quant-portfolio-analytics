@@ -16,6 +16,12 @@ export default function WeightsComparison({
       <p className="panel-sub">
         What the max-Sharpe portfolio would hold instead, given the same assets.
       </p>
+      {!opt.max_sharpe_available && (
+        <div className="inline-note">
+          No allocation of these assets earned a positive return over this window, so no
+          max-Sharpe portfolio exists. The minimum-volatility portfolio is shown in its place.
+        </div>
+      )}
       <table className="weights-table">
         <thead>
           <tr>

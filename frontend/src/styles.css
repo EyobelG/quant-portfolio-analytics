@@ -654,6 +654,17 @@ select:focus {
   color: var(--muted);
 }
 
+.inline-note {
+  background: rgba(240, 180, 41, 0.08);
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
 .calendar-note {
   background: rgba(247, 147, 26, 0.07);
   border: 1px solid rgba(247, 147, 26, 0.3);

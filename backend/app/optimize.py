@@ -19,17 +19,27 @@ def run_optimization(
     mu = expected_returns.mean_historical_return(prices, frequency=periods_per_year)
     S = risk_models.sample_cov(prices, frequency=periods_per_year)
 
-    # Max Sharpe portfolio
-    ef_sharpe = EfficientFrontier(mu, S)
-    ef_sharpe.max_sharpe()
-    max_sharpe_weights = ef_sharpe.clean_weights()
-    ms_ret, ms_vol, _ = ef_sharpe.portfolio_performance()
-
-    # Min volatility portfolio
+    # Min volatility portfolio — always solvable, so it doubles as the fallback.
     ef_minvol = EfficientFrontier(mu, S)
     ef_minvol.min_volatility()
     min_vol_weights = ef_minvol.clean_weights()
-    mv_ret, mv_vol, _ = ef_minvol.portfolio_performance()
+    mv_ret, mv_vol, _ = ef_minvol.portfolio_performance(risk_free_rate=0.0)
+
+    # Max Sharpe portfolio. The risk-free rate is 0 to match the Sharpe ratios
+    # reported everywhere else; PyPortfolioOpt otherwise assumes 2% and the two
+    # numbers disagree. It still has no solution when every asset's expected
+    # return is negative over the window — a losing period, which crypto reaches
+    # often — so fall back to minimum volatility rather than failing the request.
+    max_sharpe_available = True
+    try:
+        ef_sharpe = EfficientFrontier(mu, S)
+        ef_sharpe.max_sharpe(risk_free_rate=0.0)
+        max_sharpe_weights = ef_sharpe.clean_weights()
+        ms_ret, ms_vol, _ = ef_sharpe.portfolio_performance(risk_free_rate=0.0)
+    except Exception:
+        max_sharpe_available = False
+        max_sharpe_weights = min_vol_weights
+        ms_ret, ms_vol = mv_ret, mv_vol
 
     # Sweep target returns between min-vol and max achievable return to trace the frontier
     target_returns = np.linspace(mv_ret, mu.max() * 0.98, 25)
@@ -52,6 +62,7 @@ def run_optimization(
 
     return {
         "frontier": frontier_points,
+        "max_sharpe_available": max_sharpe_available,
         "max_sharpe_weights": max_sharpe_weights,
         "max_sharpe_point": _point(ms_ret, ms_vol),
         "min_vol_weights": min_vol_weights,
