@@ -69,8 +69,14 @@ class TestNoLookahead:
 
 class TestStructure:
     def test_reports_every_strategy(self, result):
+        """Every label is covered except the one that needs market-cap data.
+
+        `market_equilibrium` only appears when a cap-weight panel is passed in,
+        because without share counts there is no honest way to build it — see
+        TestEquilibriumRow.
+        """
         keys = {s["key"] for s in result["strategies"]}
-        assert keys == set(STRATEGY_LABELS)
+        assert keys == set(STRATEGY_LABELS) - {"market_equilibrium"}
 
     def test_all_strategies_share_one_date_range(self, result):
         lengths = {len(s["growth"]) for s in result["strategies"]}
@@ -142,3 +148,49 @@ class TestDegradation:
         out = walk_forward(panel, {c: 0.25 for c in panel.columns}, train_window=400)
         assert out["available"]
         assert all(np.isfinite(s["sharpe_ratio"]) for s in out["strategies"])
+
+
+class TestEquilibriumRow:
+    """The Black-Litterman prior, entered as a walk-forward strategy."""
+
+    @pytest.fixture
+    def caps(self, panel):
+        # Equal share counts reduce cap weights to price weights, which still
+        # drift with the market — enough to exercise the rebalancing path.
+        prices = (1 + panel).cumprod() * 100.0
+        return prices.div(prices.sum(axis=1), axis=0)
+
+    def test_row_appears_when_cap_weights_are_supplied(self, panel, equal_weights, caps):
+        out = walk_forward(panel, equal_weights, train_window=400, cap_weights=caps)
+        assert "market_equilibrium" in {s["key"] for s in out["strategies"]}
+
+    def test_row_is_absent_without_cap_weights(self, result):
+        assert "market_equilibrium" not in {s["key"] for s in result["strategies"]}
+
+    def test_mismatched_columns_drop_the_row(self, panel, equal_weights, caps):
+        """A panel that does not line up must drop the row, not misalign it."""
+        renamed = caps.rename(columns={caps.columns[0]: "ZZZ"})
+        out = walk_forward(panel, equal_weights, train_window=400, cap_weights=renamed)
+        assert "market_equilibrium" not in {s["key"] for s in out["strategies"]}
+
+    def test_uses_only_in_sample_cap_weights(self, panel, equal_weights, caps):
+        """Rewriting cap weights after the first block must not change it."""
+        base = walk_forward(
+            panel, equal_weights, train_window=400, rebalance_every=63, cap_weights=caps
+        )
+        tampered = caps.copy()
+        tampered.iloc[500:] = 0.25
+        after = walk_forward(
+            panel, equal_weights, train_window=400, rebalance_every=63, cap_weights=tampered
+        )
+
+        b = next(s for s in base["strategies"] if s["key"] == "market_equilibrium")
+        a = next(s for s in after["strategies"] if s["key"] == "market_equilibrium")
+        assert b["growth"][:63] == pytest.approx(a["growth"][:63], rel=1e-12)
+
+    def test_equilibrium_trades_less_than_the_optimizer(self, panel, equal_weights, caps):
+        """Cap weights drift with the market, so they need little rebalancing."""
+        out = walk_forward(panel, equal_weights, train_window=400, cap_weights=caps)
+        eq = next(s for s in out["strategies"] if s["key"] == "market_equilibrium")
+        ms = next(s for s in out["strategies"] if s["key"] == "max_sharpe")
+        assert eq["annual_turnover"] < ms["annual_turnover"]

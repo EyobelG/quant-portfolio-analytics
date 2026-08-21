@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BacktestChart from "./components/BacktestChart";
+import BlackLittermanPanel from "./components/BlackLittermanPanel";
 import CompositionPanel from "./components/CompositionPanel";
 import CorrelationMatrix from "./components/CorrelationMatrix";
 import DistributionChart from "./components/DistributionChart";
@@ -271,6 +272,16 @@ export default function App() {
                   </div>
                 </>
               )}
+
+              {/* Outside the `advanced` gate: it fetches independently, so it
+                  must not wait on the slow path to become usable. */}
+              <div id="blacklitterman">
+                <BlackLittermanPanel
+                  holdings={analyzed}
+                  period={period}
+                  apiBase={API_BASE}
+                />
+              </div>
             </>
           )}
           </section>

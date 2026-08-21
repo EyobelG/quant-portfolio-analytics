@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from app import regimes, risk_model, risk_stats, volatility, walkforward
+from app.blacklitterman import fetch_shares_outstanding, historical_cap_weights
 from app.factors import run_factor_analysis
 
 logger = logging.getLogger(__name__)
@@ -186,6 +187,23 @@ def volatility_block(port_ret: pd.Series, periods: int) -> dict:
     return out
 
 
+def _cap_weight_panel(prices: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Market-cap weights through time, or None if any share count is missing.
+
+    Adds the Black-Litterman equilibrium prior to the walk-forward comparison.
+    Share counts are cached for a day, so only the first request of a session
+    pays for the lookups, and a failure here must cost nothing but that one row.
+    """
+    if prices is None:
+        return None
+    try:
+        shares = {t: fetch_shares_outstanding(t) for t in prices.columns}
+        return historical_cap_weights(prices, shares)
+    except Exception as exc:
+        logger.info("market-cap weights unavailable for the walk-forward: %s", exc)
+        return None
+
+
 def run_advanced(
     returns: pd.DataFrame,
     bench_returns: pd.Series,
@@ -194,8 +212,11 @@ def run_advanced(
     periods: int,
     period: str,
     trial_sharpes: list[float],
+    prices: pd.DataFrame | None = None,
 ) -> dict:
     """Assemble every advanced block, each independently degradable."""
+    cap_weights = _cap_weight_panel(prices)
+
     return _json_safe({
         "inference": _block("inference", lambda: inference_block(port_ret, periods, trial_sharpes)),
         "risk_structure": _block(
@@ -210,7 +231,9 @@ def run_advanced(
         ),
         "walk_forward": _block(
             "walk_forward",
-            lambda: walkforward.walk_forward(returns, weights, periods_per_year=periods),
+            lambda: walkforward.walk_forward(
+                returns, weights, periods_per_year=periods, cap_weights=cap_weights
+            ),
         ),
         # Already returns its own availability flag rather than raising.
         "factors": run_factor_analysis(port_ret, bench_returns, period, periods),
