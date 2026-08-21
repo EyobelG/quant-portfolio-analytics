@@ -4,6 +4,7 @@ yfinance==1.6.0
 curl_cffi==0.16.0
 pandas==2.2.2
 numpy==1.26.4
+scipy==1.17.1
 PyPortfolioOpt==1.5.5
 empyrical-reloaded==0.5.11
 pydantic==2.9.2
