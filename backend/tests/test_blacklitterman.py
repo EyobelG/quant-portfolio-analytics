@@ -251,14 +251,21 @@ class TestViewsMoveThePosterior:
 
 class TestOptimization:
     def test_posterior_weights_are_long_only_and_fully_invested(self, panel, bench):
-        """bl_weights() would return negatives; EfficientFrontier must not."""
+        """bl_weights() would return negatives; EfficientFrontier must not.
+
+        The tolerance on the sum is 1e-4 rather than machine epsilon because
+        PyPortfolioOpt's `clean_weights()` rounds each weight to five decimals,
+        so the total drifts by up to 5e-6 per asset. A live three-asset run came
+        back as 1.00001; a tighter bound here would fail on the rounding rather
+        than on anything real.
+        """
         out = _run(
             panel,
             bench,
             [{"type": "absolute", "asset": "AAA", "value": 0.30, "confidence": 0.8}],
         )
         w = out["posterior"]["weights"]
-        assert sum(w.values()) == pytest.approx(1.0, abs=1e-6)
+        assert sum(w.values()) == pytest.approx(1.0, abs=1e-4)
         assert all(v >= -1e-9 for v in w.values())
 
     def test_a_strong_view_tilts_weights_toward_that_asset(self, panel, bench):

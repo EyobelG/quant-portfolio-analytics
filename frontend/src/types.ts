@@ -285,3 +285,53 @@ export interface AdvancedResponse {
   walk_forward: WalkForward;
   factors: Factors;
 }
+
+/* ---------- Black-Litterman (POST /api/black-litterman) ---------- */
+
+export type ViewType = "absolute" | "relative";
+
+export interface PortfolioView {
+  type: ViewType;
+  asset: string;
+  /** Required for relative views; the leg the asset is measured against. */
+  versus?: string | null;
+  /** Annualized expected return, or expected spread for a relative view. */
+  value: number;
+  confidence: number;
+}
+
+export interface ViewDiagnostic extends PortfolioView {
+  /** What the equilibrium prior implied for this view's quantity. */
+  prior_implied: number;
+  /** What the posterior implies for it, after blending. */
+  posterior_implied: number;
+  /**
+   * Share of the prior-to-view distance the posterior actually travelled.
+   * Tracks the confidence slider closely for absolute views and only loosely
+   * for relative ones — see the note in blacklitterman.py.
+   */
+  adoption: number;
+}
+
+export interface BlFrontierSide {
+  frontier: FrontierPoint[];
+  weights: Record<string, number>;
+  point: FrontierPoint;
+  max_sharpe_available: boolean;
+}
+
+export interface BlackLittermanResponse {
+  tickers: string[];
+  prior_returns: number[];
+  posterior_returns: number[];
+  market_weights: number[];
+  prior: BlFrontierSide;
+  posterior: BlFrontierSide;
+  views: ViewDiagnostic[];
+  risk_aversion: number;
+  risk_aversion_from_market: boolean;
+  tau: number;
+  market_caps_available: boolean;
+  missing_caps: string[];
+  posterior_volatility: number[];
+}

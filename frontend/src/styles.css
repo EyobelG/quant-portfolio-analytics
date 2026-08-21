@@ -1218,3 +1218,94 @@ select:focus {
 .advanced-pending {
   border-style: dashed;
 }
+
+/* ---------- Black-Litterman ---------- */
+
+.bl-views {
+  margin: 8px 0 18px;
+}
+
+.bl-views-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bl-views-head .sub-heading {
+  margin: 16px 0 10px;
+}
+
+.bl-empty {
+  margin-top: 0;
+}
+
+/* Wraps rather than scrolls: a view is a sentence and should read as one even
+   when the viewport is narrow. */
+.bl-view-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.bl-view-row select,
+.bl-view-row input[type="number"] {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.bl-view-row input[type="number"] {
+  width: 80px;
+}
+
+.bl-op {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bl-conf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.bl-conf input[type="range"] {
+  width: 120px;
+  accent-color: var(--accent);
+}
+
+.bl-run {
+  margin-top: 6px;
+}
+
+.bl-adoption {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media print {
+  /* The builder is an input surface; a printed report keeps only the results. */
+  .bl-views,
+  .bl-run {
+    display: none !important;
+  }
+
+  #blacklitterman {
+    break-before: page;
+    page-break-before: always;
+  }
+}
