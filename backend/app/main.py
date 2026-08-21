@@ -1,13 +1,18 @@
+import logging
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import sectors
+from app.advanced import run_advanced
 from app.analytics import drawdown_series, return_distribution, sector_weights
 from app.backtest import run_backtest
 from app.data import fetch_meta, fetch_prices, fetch_returns
 from app.metrics import compute_metrics, portfolio_returns
 from app.optimize import run_optimization
 from app.schemas import AnalyzeResponse, PortfolioRequest
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="Quant Portfolio Analytics API",
@@ -28,14 +33,43 @@ def health():
     return {"status": "ok"}
 
 
+def _resolve_holdings(req: PortfolioRequest) -> tuple[tuple[str, ...], dict[str, float]]:
+    """Normalize tickers and validate the weight vector.
+
+    Duplicate tickers used to collapse silently in the dict comprehension and
+    then trip the sum check with a baffling message ("weights must sum to 1.0,
+    got 0.500" for two half-weighted copies of the same symbol), so they are
+    now rejected by name.
+    """
+    seen: list[str] = []
+    duplicates: set[str] = set()
+    for h in req.holdings:
+        t = h.ticker.strip().upper()
+        if not t:
+            raise HTTPException(status_code=422, detail="Ticker cannot be blank")
+        if t in seen:
+            duplicates.add(t)
+        seen.append(t)
+
+    if duplicates:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Duplicate ticker(s): {', '.join(sorted(duplicates))}. Combine them into one holding.",
+        )
+
+    weights = {t: h.weight for t, h in zip(seen, req.holdings)}
+    total = sum(weights.values())
+    if abs(total - 1.0) > 1e-3:
+        raise HTTPException(
+            status_code=422, detail=f"Weights must sum to 1.0 (got {total:.3f})"
+        )
+
+    return tuple(seen), weights
+
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(req: PortfolioRequest):
-    tickers = tuple(h.ticker.upper() for h in req.holdings)
-    weights = {h.ticker.upper(): h.weight for h in req.holdings}
-
-    total_weight = sum(weights.values())
-    if abs(total_weight - 1.0) > 1e-3:
-        raise HTTPException(status_code=422, detail=f"Weights must sum to 1.0 (got {total_weight:.3f})")
+    tickers, weights = _resolve_holdings(req)
 
     try:
         prices = fetch_prices(tickers, req.period)
@@ -78,3 +112,44 @@ def analyze(req: PortfolioRequest):
         "distribution": return_distribution(port_ret),
         "composition": composition,
     }
+
+
+@app.post("/api/advanced")
+def advanced(req: PortfolioRequest):
+    """Statistical inference, risk decomposition, GARCH, walk-forward, factors.
+
+    Deliberately not typed with a `response_model`. Each block is either its
+    full payload or `{available: false, reason: ...}` when its dependencies fail,
+    and expressing that union for five independently-degradable blocks costs
+    a few hundred lines of Pydantic to describe a shape the frontend already
+    guards on. The fast `/api/analyze` path stays strictly typed.
+
+    Runs in roughly 3-8 seconds against warm price data.
+    """
+    tickers, weights = _resolve_holdings(req)
+
+    try:
+        prices = fetch_prices(tickers, req.period)
+        returns = fetch_returns(tickers, req.period)
+        bench_prices = fetch_prices((req.benchmark,), req.period)
+        bench_returns = bench_prices[req.benchmark].pct_change().dropna()
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    periods = sectors.periods_per_year(tickers)
+    port_ret = portfolio_returns(returns, weights)
+
+    # The frontier sweep is the search whose selection bias the deflated Sharpe
+    # ratio corrects for, so its points are the trial population.
+    optimization = run_optimization(prices, weights, periods)
+    trial_sharpes = [p["sharpe"] for p in optimization["frontier"]]
+
+    return run_advanced(
+        returns=returns,
+        bench_returns=bench_returns,
+        port_ret=port_ret,
+        weights=weights,
+        periods=periods,
+        period=req.period,
+        trial_sharpes=trial_sharpes,
+    )

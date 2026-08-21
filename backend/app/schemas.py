@@ -1,15 +1,28 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+# Yahoo accepts more strings than these, but every extra option multiplies the
+# cache keys and the walk-forward cost, and anything under a year is too short
+# for the statistics to say anything.
+Period = Literal["1y", "2y", "3y", "5y", "10y", "max"]
+
+# Loose enough for indices (^GSPC), crypto pairs (BTC-USD), and foreign listings
+# (VOD.L), strict enough to keep junk out of an upstream URL.
+_TICKER_PATTERN = r"^[\^]?[A-Za-z0-9][A-Za-z0-9._\-]{0,14}$"
 
 
 class Holding(BaseModel):
-    ticker: str
+    ticker: str = Field(min_length=1, max_length=15, pattern=_TICKER_PATTERN)
     weight: float = Field(ge=0, le=1)
 
 
 class PortfolioRequest(BaseModel):
-    holdings: list[Holding]
-    benchmark: str = "^GSPC"
-    period: str = "3y"  # yfinance period string: 1y, 2y, 3y, 5y, max
+    # Capped because each holding costs an upstream download and the covariance
+    # work grows quadratically; an uncapped list is a free denial-of-service.
+    holdings: list[Holding] = Field(min_length=1, max_length=25)
+    benchmark: str = Field(default="^GSPC", pattern=_TICKER_PATTERN)
+    period: Period = "3y"
 
 
 class MetricsResponse(BaseModel):
