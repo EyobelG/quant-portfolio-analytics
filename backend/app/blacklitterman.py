@@ -288,6 +288,16 @@ def run_black_litterman(
 
     # P @ returns is exactly what each view constrains, for both view types, so
     # the same three numbers describe an absolute and a relative view.
+    #
+    # `adoption` is worth reading carefully. For an absolute view it tracks the
+    # confidence slider almost exactly — 0.8 confidence moves the posterior 80%
+    # of the way to the view — because that is the case Idzorek's closed form is
+    # derived for. For a relative view it does not: omega scales with the
+    # variance of the *spread*, which can dwarf the prior's uncertainty about
+    # it, so a half-confidence spread view often barely moves. Both endpoints
+    # still behave (0 changes nothing, 1 binds exactly); only the middle is
+    # non-linear. Showing adoption rather than just echoing the slider is the
+    # point — it tells the user what the model actually did with their view.
     diagnostics = []
     for row, view in enumerate(views):
         p = P[row]

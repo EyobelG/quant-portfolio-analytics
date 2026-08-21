@@ -7,10 +7,11 @@ from app import sectors
 from app.advanced import run_advanced
 from app.analytics import drawdown_series, return_distribution, sector_weights
 from app.backtest import run_backtest
+from app.blacklitterman import run_black_litterman
 from app.data import fetch_meta, fetch_prices, fetch_returns
 from app.metrics import compute_metrics, portfolio_returns
 from app.optimize import run_optimization
-from app.schemas import AnalyzeResponse, PortfolioRequest
+from app.schemas import AnalyzeResponse, BlackLittermanRequest, PortfolioRequest
 
 logging.basicConfig(level=logging.INFO)
 
@@ -152,4 +153,40 @@ def advanced(req: PortfolioRequest):
         periods=periods,
         period=req.period,
         trial_sharpes=trial_sharpes,
+        prices=prices,
     )
+
+
+@app.post("/api/black-litterman")
+def black_litterman(req: BlackLittermanRequest):
+    """Equilibrium implied returns, optionally blended with user views.
+
+    Fast enough to call on every slider change: the covariance and the prior are
+    the only real work, and both come from cached prices. Views only add a small
+    linear solve on top.
+    """
+    tickers, _ = _resolve_holdings(req)
+
+    try:
+        prices = fetch_prices(tickers, req.period)
+        returns = fetch_returns(tickers, req.period)
+        bench_prices = fetch_prices((req.benchmark,), req.period)[req.benchmark]
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if len(tickers) < 2:
+        raise HTTPException(
+            status_code=422, detail="Black-Litterman needs at least two holdings"
+        )
+
+    try:
+        return run_black_litterman(
+            prices=prices,
+            returns=returns,
+            bench_prices=bench_prices,
+            views=[v.model_dump() for v in req.views],
+            periods_per_year=sectors.periods_per_year(tickers),
+        )
+    except Exception as e:
+        logging.getLogger(__name__).warning("Black-Litterman failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=422, detail=f"Could not solve the model: {e}")

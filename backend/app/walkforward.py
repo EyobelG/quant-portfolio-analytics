@@ -98,8 +98,28 @@ STRATEGY_LABELS = {
     "risk_parity": "Risk Parity (ERC)",
     "hrp": "Hierarchical Risk Parity",
     "equal_weight": "Equal Weight (1/N)",
+    "market_equilibrium": "Market Equilibrium (BL prior)",
     "buy_and_hold": "Your Portfolio (buy & hold)",
 }
+
+
+def _equilibrium_solver(cap_weights: pd.DataFrame):
+    """Market-cap weights as of the last day the optimizer is allowed to see.
+
+    This is the Black-Litterman prior with no views attached: the posterior
+    collapses to the prior, and the optimal portfolio is the market portfolio.
+    It is the only rule in this comparison that estimates no expected return at
+    all, which is the entire reason it is worth running alongside the others.
+
+    `train` is always `returns.iloc[:start]`, so its length is the index of the
+    first out-of-sample day and `len(train) - 1` is the last in-sample one.
+    """
+
+    def solve(train: pd.DataFrame, periods: int) -> np.ndarray:
+        row = min(len(train) - 1, len(cap_weights) - 1)
+        return cap_weights.iloc[row].to_numpy(dtype=float)
+
+    return solve
 
 
 def _run_period(
@@ -160,6 +180,7 @@ def walk_forward(
     train_window: int | None = None,
     rebalance_every: int = 63,
     cost_bps: float = 10.0,
+    cap_weights: pd.DataFrame | None = None,
 ) -> dict:
     """Roll a set of allocation rules forward through unseen data.
 
@@ -167,6 +188,12 @@ def walk_forward(
     reasonable retail all-in estimate for liquid US equities. Strategies that
     trade more pay more, which is most of why the aggressive optimizers lose
     their paper advantage.
+
+    `cap_weights` is an optional date-by-ticker panel of market-cap weights. When
+    supplied it adds the Black-Litterman equilibrium prior to the comparison;
+    when the share counts behind it are unavailable the caller passes None and
+    the row is dropped, rather than a different rule being substituted under the
+    same name.
     """
     n_obs, n_assets = returns.shape
 
@@ -191,9 +218,13 @@ def walk_forward(
     cost_rate = cost_bps / 10_000.0
     results: dict[str, dict] = {}
 
+    strategies = dict(_STRATEGIES)
+    if cap_weights is not None and list(cap_weights.columns) == list(returns.columns):
+        strategies["market_equilibrium"] = _equilibrium_solver(cap_weights)
+
     # Every strategy is evaluated on the identical date range so the Sharpe
     # ratios are directly comparable.
-    for key, solver in _STRATEGIES.items():
+    for key, solver in strategies.items():
         daily: list[float] = []
         turnover_total = 0.0
         n_rebal = 0
