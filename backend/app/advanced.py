@@ -13,14 +13,34 @@ cost the user their walk-forward results.
 from __future__ import annotations
 
 import logging
+import math
 
 import numpy as np
 import pandas as pd
 
-from app import risk_model, risk_stats, volatility, walkforward
+from app import regimes, risk_model, risk_stats, volatility, walkforward
 from app.factors import run_factor_analysis
 
 logger = logging.getLogger(__name__)
+
+
+def _json_safe(obj):
+    """Replace non-finite floats with None, recursively.
+
+    NaN and infinity are not valid JSON, and Starlette's encoder raises rather
+    than emitting them — so a single undefined ratio anywhere in this response
+    turns the whole request into a 500. Several statistics here are legitimately
+    undefined on some inputs (a Calmar ratio with no drawdown, a beta ratio
+    whose legs straddle zero), so they are mapped to null and the frontend
+    renders them as a dash.
+    """
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
 
 
 def _block(name: str, fn):
@@ -176,16 +196,22 @@ def run_advanced(
     trial_sharpes: list[float],
 ) -> dict:
     """Assemble every advanced block, each independently degradable."""
-    return {
+    return _json_safe({
         "inference": _block("inference", lambda: inference_block(port_ret, periods, trial_sharpes)),
         "risk_structure": _block(
             "risk_structure", lambda: risk_structure_block(returns, weights, periods)
         ),
         "volatility": _block("volatility", lambda: volatility_block(port_ret, periods)),
+        # A groupby and a few corr() calls — milliseconds, so it rides along
+        # here rather than costing the frontend another round trip.
+        "regimes": _block(
+            "regimes",
+            lambda: regimes.regime_analysis(returns, bench_returns, port_ret=port_ret),
+        ),
         "walk_forward": _block(
             "walk_forward",
             lambda: walkforward.walk_forward(returns, weights, periods_per_year=periods),
         ),
         # Already returns its own availability flag rather than raising.
         "factors": run_factor_analysis(port_ret, bench_returns, period, periods),
-    }
+    })

@@ -278,10 +278,48 @@ export type Factors = Degradable<{
   unexplained_share: number;
 }> & { loadings: FactorLoading[] };
 
+/* ---------- Regime-conditional correlation ---------- */
+
+export type CorrMatrix = Record<string, Record<string, number>>;
+
+export interface RegimeStats {
+  observations: number;
+  correlation_matrix: CorrMatrix;
+  average_correlation: number;
+  benchmark_mean: number;
+  benchmark_worst: number;
+  benchmark_best: number;
+}
+
+export interface AsymmetricBeta {
+  ticker: string;
+  beta: number | null;
+  downside_beta: number | null;
+  upside_beta: number | null;
+  // Null when the up and down betas straddle zero, where the quotient has no
+  // valid reading. The API sends null rather than NaN, which is not JSON.
+  ratio: number | null;
+  asymmetric: boolean;
+}
+
+export type Regimes = Degradable<{
+  tickers: string[];
+  tail_quantile: number;
+  observations: number;
+  regimes: { stressed: RegimeStats; calm: RegimeStats; rally: RegimeStats };
+  delta_matrix: CorrMatrix;
+  correlation_increase: number;
+  betas: AsymmetricBeta[];
+  min_regime_observations: number;
+  reliable: boolean;
+  capture?: { downside: number; upside: number; down_days: number; up_days: number };
+}>;
+
 export interface AdvancedResponse {
   inference: Inference;
   risk_structure: RiskStructure;
   volatility: VolatilityBlock;
+  regimes: Regimes;
   walk_forward: WalkForward;
   factors: Factors;
 }
