@@ -920,3 +920,301 @@ select:focus {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* ---------- Advanced analytics ---------- */
+
+.sub-heading {
+  font-size: 15px;
+  margin: 28px 0 10px;
+  color: var(--text);
+}
+
+.finding-box {
+  background: linear-gradient(135deg, rgba(79, 124, 255, 0.10), rgba(34, 211, 238, 0.06));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 16px 0 22px;
+}
+
+.finding-headline {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.finding-box p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sig-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.sig-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.sig-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sig-value {
+  font-size: 26px;
+  font-weight: 650;
+  margin: 6px 0 4px;
+}
+
+.sig-verdict {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.sig-hint {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
+.conf-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: #232a3a;
+  overflow: hidden;
+  margin: 10px 0 4px;
+}
+
+.conf-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.conf-fill.good { background: var(--good); }
+.conf-fill.warn { background: #e3b341; }
+.conf-fill.bad { background: var(--bad); }
+
+/* The 95% mark, so a bar can be read against the conventional threshold. */
+.conf-threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.55;
+}
+
+.wf-table td:first-child {
+  white-space: nowrap;
+}
+
+.wf-best td {
+  background: rgba(47, 191, 113, 0.07);
+}
+
+.factor-name {
+  font-weight: 600;
+}
+
+.factor-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.bar-cell {
+  width: 34%;
+  min-width: 130px;
+}
+
+/* Diverging bar: zero sits at the centre so a negative loading reads as one. */
+.loading-track {
+  position: relative;
+  height: 16px;
+  background: #1b2130;
+  border-radius: 3px;
+}
+
+.loading-zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.loading-bar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 2px;
+}
+
+.loading-bar.pos { background: var(--accent); }
+.loading-bar.neg { background: var(--bad); }
+.loading-bar.faded { opacity: 0.38; }
+
+/* ---------- Print / PDF export ---------- */
+
+.report-cover { display: none; }
+
+@media print {
+  /* Force the dark theme off: a dark tearsheet is unreadable on paper and
+     burns a cartridge. Recharts draws SVG, so everything stays vector. */
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --border: #d0d5dd;
+    --text: #14181f;
+    --muted: #5a6472;
+  }
+
+  @page {
+    margin: 14mm 12mm;
+  }
+
+  body {
+    background: #fff;
+    color: #14181f;
+  }
+
+  /* Chrome and Safari drop background colours unless asked. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .site-header,
+  .sidebar,
+  .hero,
+  .results-bar,
+  .app-footer,
+  .empty-state,
+  .suggestions,
+  .builder-actions {
+    display: none !important;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .layout {
+    display: block;
+  }
+
+  .report-cover {
+    display: block;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #14181f;
+  }
+
+  .report-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .report-title {
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .report-sub {
+    font-size: 12px;
+    color: #5a6472;
+  }
+
+  .report-holdings {
+    margin: 12px 0;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .report-holdings th,
+  .report-holdings td {
+    border: 1px solid #d0d5dd;
+    padding: 3px 10px;
+    text-align: left;
+  }
+
+  .report-meta {
+    font-size: 10px;
+    color: #5a6472;
+  }
+
+  /* Keep a panel and its heading together; let long tables flow. */
+  .panel {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #d0d5dd;
+    background: #fff;
+    margin-bottom: 14px;
+  }
+
+  .panel h2 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .metrics-grid {
+    break-inside: avoid;
+  }
+
+  .metric-card,
+  .sig-card,
+  .finding-box {
+    border: 1px solid #d0d5dd;
+    background: #fff;
+  }
+
+  .two-col {
+    display: block;
+  }
+
+  .matrix-scroll {
+    overflow: visible;
+  }
+
+  /* Section breaks so each major analysis starts on a fresh page. */
+  #walkforward,
+  #inference,
+  #riskstructure {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}
+
+.results-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ghost-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.advanced-pending {
+  border-style: dashed;
+}
