@@ -11,6 +11,7 @@ import InferencePanel from "./components/InferencePanel";
 import Logo from "./components/Logo";
 import MetricsGrid from "./components/MetricsGrid";
 import PortfolioBuilder from "./components/PortfolioBuilder";
+import RegimeCorrelationPanel from "./components/RegimeCorrelationPanel";
 import ReportCover from "./components/ReportCover";
 import RiskStructurePanel from "./components/RiskStructurePanel";
 import VolatilityPanel from "./components/VolatilityPanel";
@@ -258,6 +259,9 @@ export default function App() {
                   </div>
                   <div id="riskstructure">
                     <RiskStructurePanel rs={advanced.risk_structure} />
+                  </div>
+                  <div id="regimes">
+                    <RegimeCorrelationPanel reg={advanced.regimes} />
                   </div>
                   <div id="volatility">
                     <VolatilityPanel vol={advanced.volatility} dates={result.backtest.dates} />
