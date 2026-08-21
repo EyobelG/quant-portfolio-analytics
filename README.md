@@ -6,7 +6,7 @@ A full-stack web application for quantitative portfolio analysis. Enter a set of
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
 ![React](https://img.shields.io/badge/React-18-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6)
-![Tests](https://img.shields.io/badge/tests-108%20passing-2fbf71)
+![Tests](https://img.shields.io/badge/tests-176%20passing-2fbf71)
 
 ---
 
@@ -21,6 +21,20 @@ A walk-forward test re-fits each allocation rule at every rebalance using only d
 On a typical five-stock portfolio over five years, max-Sharpe optimization scores about **1.39 in-sample and 0.87 out-of-sample**, and loses to naive equal weighting — reproducing DeMiguel, Garlappi & Uppal (2009). Estimation error in expected returns swamps the benefit of optimizing over them, and the optimizer's 0.82x annual turnover pays for the privilege. Risk parity and hierarchical risk parity, neither of which needs a return forecast, come out on top.
 
 The in-sample backtest is still shown alongside it, precisely so the gap is visible.
+
+### The principled repair
+
+If historical means are the problem, the fix is to stop estimating them. **Black-Litterman** reverse-optimizes the market's own capitalization weights into the returns the market must already be assuming — no sample means anywhere — and then moves off that prior only as far as an explicit view at an explicit confidence justifies.
+
+Views are entered as sentences, absolute ("AAPL returns 12% a year") or relative ("AAPL beats XOM by 9%"), each with a confidence slider mapped through Idzorek's method onto the view-uncertainty matrix. With no views the posterior is exactly the prior and the optimum is the market portfolio.
+
+The claim is then tested rather than asserted: the equilibrium prior runs as its own row in the walk-forward table, with historical cap weights reconstructed as `shares × price` so there is no lookahead. On a five-year book it lands around Sharpe 1.01 against 0.74 for both max-Sharpe variants — better than optimizing over historical means, still short of equal weight.
+
+### Correlation under stress
+
+A single correlation matrix averaged over the whole sample is the most misleading number in portfolio analysis. Splitting by the benchmark's return decile shows why: average pairwise correlation on a typical five-stock book runs **0.03 in calm markets and 0.23 in the worst decile**, so the diversification the average implies is largely absent on the days it is supposed to matter. Rendered as calm and stressed matrices side by side with a delta view, plus per-asset downside and upside betas.
+
+The split is by benchmark return, not portfolio return — conditioning on the portfolio's own losses would be circular.
 
 ### Statistical inference
 
@@ -79,6 +93,8 @@ backend/          FastAPI service
     volatility.py   GARCH(1,1) MLE, EWMA, ARCH-LM
     walkforward.py  out-of-sample rolling backtest with turnover costs
     factors.py      multi-factor regression on ETF spreads
+    regimes.py      correlation and beta split by market regime
+    blacklitterman.py  equilibrium prior, views, posterior frontier
   tests/            108 tests, seeded
 
 frontend/         React + TypeScript + Vite
@@ -152,6 +168,10 @@ Same request body. Returns five independently-degradable blocks — `inference`,
 
 Split from `/api/analyze` deliberately: this path fits a GARCH model by maximum likelihood, bootstraps 2,000 resamples, and re-runs six optimizers at every rebalance, so it takes roughly 3-8 seconds. The frontend renders the headline metrics first and streams these in behind them rather than making the fast path wait.
 
+### `POST /api/black-litterman`
+
+Takes the portfolio plus a `views` array — each view `absolute` or `relative`, with a target return and a 0-1 confidence. Returns equilibrium and posterior expected returns, market and posterior-optimal weights, and both frontiers.
+
 Interactive docs are served at `/docs`.
 
 ---
@@ -164,7 +184,7 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -q
 ```
 
-108 tests, all seeded, run in about 11 seconds. They are written against closed forms and known-parameter simulations rather than recorded outputs, so a failure is a real regression:
+176 tests, all seeded, run in about 20 seconds. They are written against closed forms and known-parameter simulations rather than recorded outputs, so a failure is a real regression:
 
 - GARCH is fitted to simulated paths with known ω, α, β and checked for parameter recovery.
 - Risk contributions are asserted to sum exactly to portfolio volatility (Euler's theorem), and denoising to preserve the trace of the correlation matrix.
@@ -172,6 +192,8 @@ python -m pytest tests/ -q
 - Kupiec's statistic is asserted against its closed form at the zero-exception and all-exception boundaries.
 - Effective bets is checked to equal *n* for uncorrelated assets and 1 for perfectly correlated ones.
 - The walk-forward engine is tested for **no lookahead**: rewriting the tail of the price history must leave the earliest out-of-sample block bit-identical.
+- Black-Litterman is checked against its own boundaries: no views leaves the posterior exactly equal to the prior, full confidence binds the view exactly, and zero confidence leaves the prior untouched.
+- Regime correlation is checked on synthetic data with a deliberately elevated tail correlation, and downside/upside capture is checked to recover a known ratio.
 
 CI runs the suite plus a frontend typecheck and build on every push.
 
@@ -207,6 +229,8 @@ Known limitations of the analysis itself:
 - **A single walk-forward path is one sample.** It shows what happened over one history, not a distribution of outcomes; combinatorially-purged cross-validation would be the stronger design.
 - **GARCH(1,1) assumes Gaussian innovations,** which understates the tails it is being used to model. A Student-t or skewed-t likelihood would fit daily equity returns better.
 - **Transaction costs are a flat 10bps on turnover** — no market impact, no bid-ask modelling, no borrow costs.
+- **The market-implied risk aversion is inflated by the 0% risk-free rate.** δ = (market return − rf) / variance, so with rf pinned at zero a strong bull window pushes δ into the 4-9 range and the equilibrium returns scale with it. They are meaningful as *relative* magnitudes and as a prior to be updated, not as forecasts.
+- **Idzorek confidence is calibrated for absolute views.** A relative view at 50% confidence moves the posterior far less than an absolute one, because omega for a spread scales with the spread's variance. Both endpoints still behave correctly; the panel says so rather than hiding it.
 - Metrics use a 0% risk-free rate. Long-only, fully-invested constraints apply (no shorting or leverage).
 
 Educational project — not investment advice.
