@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BacktestChart from "./components/BacktestChart";
 import BlackLittermanPanel from "./components/BlackLittermanPanel";
+import BrokerPanel from "./components/BrokerPanel";
 import CompositionPanel from "./components/CompositionPanel";
 import CorrelationMatrix from "./components/CorrelationMatrix";
 import DistributionChart from "./components/DistributionChart";
@@ -273,14 +274,17 @@ export default function App() {
                 </>
               )}
 
-              {/* Outside the `advanced` gate: it fetches independently, so it
-                  must not wait on the slow path to become usable. */}
+              {/* Outside the `advanced` gate: both fetch independently, so
+                  neither should wait on the slow path to become usable. */}
               <div id="blacklitterman">
                 <BlackLittermanPanel
                   holdings={analyzed}
                   period={period}
                   apiBase={API_BASE}
                 />
+              </div>
+              <div id="broker">
+                <BrokerPanel holdings={analyzed} period={period} apiBase={API_BASE} />
               </div>
             </>
           )}

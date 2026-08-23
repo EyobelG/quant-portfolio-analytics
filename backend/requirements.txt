@@ -10,3 +10,4 @@ empyrical-reloaded==0.5.11
 pydantic==2.9.2
 python-multipart==0.0.9
 cachetools==5.5.0
+alpaca-py==0.33.1

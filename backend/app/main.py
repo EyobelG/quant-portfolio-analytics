@@ -3,15 +3,21 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import sectors
-from app.advanced import run_advanced
+from app import broker, sectors
+from app.advanced import cap_weight_panel, run_advanced
 from app.analytics import drawdown_series, return_distribution, sector_weights
 from app.backtest import run_backtest
 from app.blacklitterman import run_black_litterman
 from app.data import fetch_meta, fetch_prices, fetch_returns
 from app.metrics import compute_metrics, portfolio_returns
 from app.optimize import run_optimization
-from app.schemas import AnalyzeResponse, BlackLittermanRequest, PortfolioRequest
+from app.schemas import (
+    AnalyzeResponse,
+    BlackLittermanRequest,
+    PortfolioRequest,
+    RebalanceSubmitRequest,
+)
+from app.walkforward import select_best_strategy
 
 logging.basicConfig(level=logging.INFO)
 
@@ -190,3 +196,82 @@ def black_litterman(req: BlackLittermanRequest):
     except Exception as e:
         logging.getLogger(__name__).warning("Black-Litterman failed: %s", e, exc_info=True)
         raise HTTPException(status_code=422, detail=f"Could not solve the model: {e}")
+
+
+def _broker_call(fn):
+    """Run a broker.py call, mapping missing keys and Alpaca failures to clean HTTP errors."""
+    try:
+        return fn()
+    except broker.BrokerNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logging.getLogger(__name__).warning("Alpaca request failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Alpaca request failed: {e}")
+
+
+@app.get("/api/broker/account")
+def broker_account():
+    return _broker_call(broker.get_account)
+
+
+@app.get("/api/broker/positions")
+def broker_positions():
+    return _broker_call(broker.get_positions)
+
+
+@app.get("/api/broker/orders")
+def broker_orders():
+    return {"orders": _broker_call(broker.get_recent_orders)}
+
+
+@app.post("/api/broker/rebalance/preview")
+def broker_rebalance_preview(req: PortfolioRequest):
+    """Pick whichever strategy currently backtests best out-of-sample and diff
+    its target weights against the live paper account, without submitting
+    anything. `/api/broker/rebalance/submit` takes this response's `orders`
+    list unchanged."""
+    tickers, weights = _resolve_holdings(req)
+    if len(tickers) < 2:
+        raise HTTPException(status_code=422, detail="Rebalancing needs at least two holdings")
+
+    try:
+        prices = fetch_prices(tickers, req.period)
+        returns = fetch_returns(tickers, req.period)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    periods = sectors.periods_per_year(tickers)
+    cap_weights = cap_weight_panel(prices)
+
+    try:
+        choice = select_best_strategy(
+            returns, weights, periods_per_year=periods, cap_weights=cap_weights
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    account = _broker_call(broker.get_account)
+    positions = _broker_call(broker.get_positions)
+    orders = broker.build_rebalance_orders(choice["weights"], account["equity"], positions)
+
+    return {
+        "strategy": choice["key"],
+        "strategy_label": choice["label"],
+        "strategy_sharpe": choice["sharpe_ratio"],
+        "target_weights": choice["weights"],
+        "account": account,
+        "orders": [broker.order_preview_dict(o) for o in orders],
+    }
+
+
+@app.post("/api/broker/rebalance/submit")
+def broker_rebalance_submit(req: RebalanceSubmitRequest):
+    """Submit exactly the orders the caller previewed and confirmed."""
+    orders = [
+        broker.OrderPreview(
+            ticker=o.ticker, side=o.side, notional=o.notional, current_value=0.0, target_value=0.0
+        )
+        for o in req.orders
+    ]
+    results = _broker_call(lambda: broker.submit_orders(orders))
+    return {"results": [broker.order_result_dict(r) for r in results]}

@@ -373,3 +373,51 @@ export interface BlackLittermanResponse {
   missing_caps: string[];
   posterior_volatility: number[];
 }
+
+/* ---------- Alpaca paper trading (GET/POST /api/broker/*) ---------- */
+
+export interface BrokerAccount {
+  equity: number;
+  cash: number;
+  buying_power: number;
+  portfolio_value: number;
+}
+
+export type OrderSide = "buy" | "sell";
+
+export interface OrderPreview {
+  ticker: string;
+  side: OrderSide;
+  notional: number;
+  current_value: number;
+  target_value: number;
+}
+
+export interface RebalancePreview {
+  strategy: string;
+  strategy_label: string;
+  strategy_sharpe: number;
+  target_weights: Record<string, number>;
+  account: BrokerAccount;
+  orders: OrderPreview[];
+}
+
+export interface OrderResult {
+  ticker: string;
+  side: OrderSide;
+  notional: number;
+  status: string;
+  order_id: string | null;
+  error?: string | null;
+}
+
+export interface BrokerOrder {
+  id: string;
+  symbol: string;
+  side: OrderSide;
+  notional: number | null;
+  qty: number | null;
+  status: string;
+  submitted_at: string | null;
+  filled_at: string | null;
+}

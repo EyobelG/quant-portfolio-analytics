@@ -187,12 +187,14 @@ def volatility_block(port_ret: pd.Series, periods: int) -> dict:
     return out
 
 
-def _cap_weight_panel(prices: pd.DataFrame | None) -> pd.DataFrame | None:
+def cap_weight_panel(prices: pd.DataFrame | None) -> pd.DataFrame | None:
     """Market-cap weights through time, or None if any share count is missing.
 
-    Adds the Black-Litterman equilibrium prior to the walk-forward comparison.
-    Share counts are cached for a day, so only the first request of a session
-    pays for the lookups, and a failure here must cost nothing but that one row.
+    Adds the Black-Litterman equilibrium prior to the walk-forward comparison
+    (and, via `walkforward.select_best_strategy`, to the broker rebalance
+    endpoints). Share counts are cached for a day, so only the first request of
+    a session pays for the lookups, and a failure here must cost nothing but
+    that one row.
     """
     if prices is None:
         return None
@@ -215,7 +217,7 @@ def run_advanced(
     prices: pd.DataFrame | None = None,
 ) -> dict:
     """Assemble every advanced block, each independently degradable."""
-    cap_weights = _cap_weight_panel(prices)
+    cap_weights = cap_weight_panel(prices)
 
     return _json_safe({
         "inference": _block("inference", lambda: inference_block(port_ret, periods, trial_sharpes)),

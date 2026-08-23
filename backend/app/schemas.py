@@ -163,3 +163,18 @@ class AnalyzeResponse(BaseModel):
     drawdown: DrawdownSeries
     distribution: ReturnDistribution
     composition: Composition
+
+
+class OrderPreviewIn(BaseModel):
+    """One order from a `/api/broker/rebalance/preview` response, echoed back
+    to `/api/broker/rebalance/submit` so what gets submitted is exactly what
+    the user confirmed, not a value recomputed (and possibly drifted) between
+    the two calls."""
+
+    ticker: str = Field(min_length=1, max_length=15, pattern=_TICKER_PATTERN)
+    side: Literal["buy", "sell"]
+    notional: float = Field(gt=0)
+
+
+class RebalanceSubmitRequest(BaseModel):
+    orders: list[OrderPreviewIn] = Field(min_length=1, max_length=25)

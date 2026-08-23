@@ -316,6 +316,55 @@ def walk_forward(
     }
 
 
+def select_best_strategy(
+    returns: pd.DataFrame,
+    initial_weights: dict[str, float],
+    periods_per_year: int = 252,
+    cap_weights: pd.DataFrame | None = None,
+    **walk_forward_kwargs,
+) -> dict:
+    """Pick the strategy with the best out-of-sample Sharpe and its current weights.
+
+    `walk_forward` only keeps each strategy's realized return path, not the
+    target weights it held at any point, since a full history of intermediate
+    allocations is never displayed. So once the winner is known, its current
+    weights are recomputed on the *whole* sample (the same "train on
+    everything available today" call every other current-allocation endpoint
+    in this app makes) rather than pulled from the backtest.
+    """
+    result = walk_forward(
+        returns, initial_weights, periods_per_year, cap_weights=cap_weights, **walk_forward_kwargs
+    )
+    if not result["available"] or not result["strategies"]:
+        raise ValueError(result.get("reason", "Walk-forward comparison is unavailable"))
+
+    best = result["strategies"][0]
+    key = best["key"]
+    tickers = list(returns.columns)
+
+    if key == "buy_and_hold":
+        total = sum(initial_weights.get(t, 0.0) for t in tickers)
+        weights = {t: initial_weights.get(t, 0.0) / total for t in tickers} if total > 0 else {}
+    elif key == "market_equilibrium" and cap_weights is not None:
+        w = cap_weights.iloc[-1].to_numpy(dtype=float)
+        total = w.sum()
+        w = w / total if total > 0 else np.full(len(tickers), 1.0 / len(tickers))
+        weights = dict(zip(tickers, (float(v) for v in w)))
+    else:
+        w = np.clip(np.asarray(_STRATEGIES[key](returns, periods_per_year), dtype=float), 0, None)
+        total = w.sum()
+        w = w / total if total > 0 else np.full(len(tickers), 1.0 / len(tickers))
+        weights = dict(zip(tickers, (float(v) for v in w)))
+
+    return {
+        "key": key,
+        "label": best["label"],
+        "sharpe_ratio": best["sharpe_ratio"],
+        "weights": weights,
+        "walk_forward": result,
+    }
+
+
 def _in_sample_sharpe(returns: pd.DataFrame, periods: int) -> float:
     """Sharpe of max-Sharpe weights fitted and scored on the whole sample."""
     try:

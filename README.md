@@ -6,7 +6,7 @@ A full-stack web application for quantitative portfolio analysis. Enter a set of
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
 ![React](https://img.shields.io/badge/React-18-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6)
-![Tests](https://img.shields.io/badge/tests-176%20passing-2fbf71)
+![Tests](https://img.shields.io/badge/tests-184%20passing-2fbf71)
 
 ---
 
@@ -95,6 +95,7 @@ backend/          FastAPI service
     factors.py      multi-factor regression on ETF spreads
     regimes.py      correlation and beta split by market regime
     blacklitterman.py  equilibrium prior, views, posterior frontier
+    broker.py       Alpaca paper-trading client and rebalance order diffing
   tests/            108 tests, seeded
 
 frontend/         React + TypeScript + Vite
@@ -207,6 +208,13 @@ CI runs the suite plus a frontend typecheck and build on every push.
 2. **New → Blueprint**, select this repository, and apply.
 
 Render builds `quant-portfolio-api` (Python web service) and `quant-portfolio-web` (static site). On the free tier the API sleeps after ~15 minutes idle, so the first request after a pause takes roughly 50 seconds to wake it.
+
+**Paper trading (optional):** the "Paper Trading" panel places orders through Alpaca's paper (simulated) trading API. It's inert until two secret env vars are set on the **`quant-portfolio-api`** service (Render dashboard → service → Environment — not in `render.yaml`, and not on the static frontend service):
+
+- `ALPACA_API_KEY`
+- `ALPACA_SECRET_KEY`
+
+Generate a *paper* key pair from the Alpaca dashboard, not a live one — Alpaca issues separate key pairs for its paper and live endpoints, and live keys won't authenticate against paper at all. The client (`backend/app/broker.py`) hardcodes Alpaca's paper endpoint (`paper=True`) regardless of which keys are supplied, so no env var can accidentally point this feature at a live account. Without these vars set, `/api/broker/*` returns `503` and the frontend panel explains what's missing rather than erroring.
 
 To deploy elsewhere, the frontend is a plain static bundle (`npm run build` → `dist/`) for Vercel, Netlify, or any static host — set `VITE_API_BASE` to the API's URL at build time. The backend runs on anything that hosts a Python web service, including the included `Dockerfile`:
 
