@@ -14,6 +14,7 @@ import Logo from "./components/Logo";
 import MetricsGrid from "./components/MetricsGrid";
 import PortfolioBuilder from "./components/PortfolioBuilder";
 import RegimeCorrelationPanel from "./components/RegimeCorrelationPanel";
+import RegimeMLPanel from "./components/RegimeMLPanel";
 import ReportCover from "./components/ReportCover";
 import RiskStructurePanel from "./components/RiskStructurePanel";
 import VolatilityPanel from "./components/VolatilityPanel";
@@ -255,6 +256,9 @@ export default function App() {
                 <>
                   <div id="walkforward">
                     <WalkForwardPanel wf={advanced.walk_forward} />
+                  </div>
+                  <div id="regimeml">
+                    <RegimeMLPanel reg={advanced.regime_ml} />
                   </div>
                   <div id="inference">
                     <InferencePanel inf={advanced.inference} />

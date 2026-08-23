@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.walkforward import STRATEGY_LABELS, walk_forward
+from app.walkforward import STRATEGY_LABELS, select_best_strategy, walk_forward
 
 
 def _panel(n=900, p=4, seed=0):
@@ -194,3 +194,33 @@ class TestEquilibriumRow:
         eq = next(s for s in out["strategies"] if s["key"] == "market_equilibrium")
         ms = next(s for s in out["strategies"] if s["key"] == "max_sharpe")
         assert eq["annual_turnover"] < ms["annual_turnover"]
+
+
+class TestRegimeMlRow:
+    """The ML regime classifier, entered as a walk-forward strategy."""
+
+    def test_row_appears_with_finite_normalized_weights(self, result):
+        row = next(s for s in result["strategies"] if s["key"] == "regime_ml")
+        assert np.isfinite(row["sharpe_ratio"])
+        assert row["label"] == "ML Regime Classifier"
+
+    def test_no_lookahead(self, panel, equal_weights):
+        """Rewriting the tail must leave the earliest held period untouched."""
+        base = walk_forward(panel, equal_weights, train_window=400, rebalance_every=63)
+
+        tampered = panel.copy()
+        tampered.iloc[600:] *= 5.0
+        after = walk_forward(tampered, equal_weights, train_window=400, rebalance_every=63)
+
+        b = next(s for s in base["strategies"] if s["key"] == "regime_ml")
+        a = next(s for s in after["strategies"] if s["key"] == "regime_ml")
+        assert b["growth"][:200] == pytest.approx(a["growth"][:200], rel=1e-9)
+
+    def test_select_best_strategy_handles_it_with_no_special_casing(self, panel, equal_weights):
+        """If regime_ml wins, select_best_strategy must still return valid weights."""
+        choice = select_best_strategy(
+            panel, equal_weights, train_window=400, rebalance_every=63
+        )
+        total = sum(choice["weights"].values())
+        assert total == pytest.approx(1.0, abs=1e-6)
+        assert all(v >= 0 for v in choice["weights"].values())

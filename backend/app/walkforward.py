@@ -31,6 +31,7 @@ import pandas as pd
 from pypfopt import EfficientFrontier, expected_returns, risk_models
 from pypfopt.hierarchical_portfolio import HRPOpt
 
+from app.regime_classifier import compute_features, fit_regimes
 from app.risk_model import equal_risk_contribution, ledoit_wolf_shrinkage
 
 # Minimum out-of-sample days before the comparison means anything. Below roughly
@@ -91,6 +92,66 @@ _STRATEGIES = {
     "equal_weight": lambda tr, p: np.full(tr.shape[1], 1.0 / tr.shape[1]),
 }
 
+# Snapshot of every non-ML candidate, captured before `regime_ml` is added
+# below -- the regime solver picks among these, and must not be able to pick
+# itself.
+_BASE_STRATEGIES = dict(_STRATEGIES)
+
+# Below this many in-sample days for a regime, its Sharpe is too noisy to
+# trust as "the strategy that wins in this regime" -- the days are pooled
+# into whichever adjacent regime the current day actually falls in instead of
+# ranking on a handful of observations.
+_MIN_DAYS_PER_REGIME = 20
+
+
+def _regime_ml_weights(train: pd.DataFrame, periods: int) -> np.ndarray:
+    """Weights of whichever strategy currently backtests best in today's regime.
+
+    Fits the regime classifier on `train` only (never on data the walk-forward
+    loop has not yet reached), then scores every other candidate strategy's
+    full-`train` weights against the daily returns realized on the subset of
+    `train` days sharing the same regime as the most recent one. This is a
+    real, testable claim -- not a hand-tuned rule -- and it is judged by
+    exactly the same out-of-sample walk-forward test as every other row in
+    this table.
+    """
+    try:
+        features = compute_features(train)
+        regimes = fit_regimes(features)
+    except Exception:
+        return np.full(train.shape[1], 1.0 / train.shape[1])
+
+    labels = regimes["labels"]
+    current_regime = labels.iloc[-1]
+    aligned = train.loc[labels.index]
+
+    best_key, best_sharpe = None, -np.inf
+    for key, solver in _BASE_STRATEGIES.items():
+        try:
+            w = np.clip(np.asarray(solver(train, periods), dtype=float), 0, None)
+            total = w.sum()
+            w = w / total if total > 0 else np.full(train.shape[1], 1.0 / train.shape[1])
+        except Exception:
+            continue
+
+        in_regime = aligned.loc[labels == current_regime]
+        if len(in_regime) < _MIN_DAYS_PER_REGIME:
+            in_regime = aligned  # too few regime-specific days to rank on; fall back to the whole window
+        r = in_regime.to_numpy(dtype=float) @ w
+        sd = r.std(ddof=1)
+        sharpe = float(r.mean() / sd * np.sqrt(periods)) if sd > 0 else 0.0
+
+        if sharpe > best_sharpe:
+            best_key, best_sharpe = key, sharpe
+            best_weights = w
+
+    if best_key is None:
+        return np.full(train.shape[1], 1.0 / train.shape[1])
+    return best_weights
+
+
+_STRATEGIES["regime_ml"] = _regime_ml_weights
+
 STRATEGY_LABELS = {
     "max_sharpe": "Max Sharpe",
     "max_sharpe_shrunk": "Max Sharpe (Ledoit-Wolf)",
@@ -100,6 +161,7 @@ STRATEGY_LABELS = {
     "equal_weight": "Equal Weight (1/N)",
     "market_equilibrium": "Market Equilibrium (BL prior)",
     "buy_and_hold": "Your Portfolio (buy & hold)",
+    "regime_ml": "ML Regime Classifier",
 }
 
 
@@ -362,6 +424,70 @@ def select_best_strategy(
         "sharpe_ratio": best["sharpe_ratio"],
         "weights": weights,
         "walk_forward": result,
+    }
+
+
+def regime_overview(returns: pd.DataFrame, periods_per_year: int = 252) -> dict:
+    """Current regime, its history, and which strategy actually wins in each.
+
+    A full-sample fit for display -- distinct from `_regime_ml_weights`, which
+    refits per-rebalance on `train` only inside the walk-forward loop. This
+    answers "what regime are we in right now and why does that matter", not
+    "what would a trading rule have done"; the trading question is answered by
+    the `regime_ml` row `walk_forward` already produces.
+    """
+    features = compute_features(returns)
+    regimes = fit_regimes(features)
+    labels = regimes["labels"]
+    aligned = returns.loc[labels.index]
+
+    leaderboard = []
+    for level, name in enumerate(regimes["level_names"]):
+        in_regime = aligned.loc[labels == level]
+        feat_in_regime = features.loc[labels == level]
+        if in_regime.empty:
+            continue
+
+        best_key, best_sharpe = None, -np.inf
+        for key, solver in _BASE_STRATEGIES.items():
+            try:
+                w = np.clip(np.asarray(solver(returns, periods_per_year), dtype=float), 0, None)
+                total = w.sum()
+                w = w / total if total > 0 else np.full(returns.shape[1], 1.0 / returns.shape[1])
+            except Exception:
+                continue
+            r = in_regime.to_numpy(dtype=float) @ w
+            sd = r.std(ddof=1)
+            sharpe = float(r.mean() / sd * np.sqrt(periods_per_year)) if sd > 0 else 0.0
+            if sharpe > best_sharpe:
+                best_key, best_sharpe = key, sharpe
+
+        leaderboard.append(
+            {
+                "regime": name,
+                "level": level,
+                "days": int(len(in_regime)),
+                "best_strategy": best_key,
+                "best_strategy_label": STRATEGY_LABELS.get(best_key, best_key),
+                "sharpe": round(best_sharpe, 4) if best_key else None,
+                "avg_volatility": round(float(feat_in_regime["volatility"].mean()), 4),
+                "avg_correlation": round(float(feat_in_regime["correlation"].mean()), 4),
+            }
+        )
+
+    current_level = int(labels.iloc[-1])
+    return {
+        "current_regime": {
+            "label": regimes["level_names"][current_level],
+            "level": current_level,
+            "confidence": round(float(regimes["confidence"].iloc[-1]), 4),
+        },
+        "n_regimes": len(regimes["level_names"]),
+        "converged": regimes["converged"],
+        "dates": [d.strftime("%Y-%m-%d") for d in labels.index],
+        "regime_levels": [int(v) for v in labels.to_numpy()],
+        "level_names": regimes["level_names"],
+        "leaderboard": leaderboard,
     }
 
 

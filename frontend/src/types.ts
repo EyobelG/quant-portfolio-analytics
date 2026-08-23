@@ -315,12 +315,34 @@ export type Regimes = Degradable<{
   capture?: { downside: number; upside: number; down_days: number; up_days: number };
 }>;
 
+export interface RegimeLeaderboardRow {
+  regime: string;
+  level: number;
+  days: number;
+  best_strategy: string | null;
+  best_strategy_label: string;
+  sharpe: number | null;
+  avg_volatility: number;
+  avg_correlation: number;
+}
+
+export type RegimeML = Degradable<{
+  current_regime: { label: string; level: number; confidence: number };
+  n_regimes: number;
+  converged: boolean;
+  dates: string[];
+  regime_levels: number[];
+  level_names: string[];
+  leaderboard: RegimeLeaderboardRow[];
+}>;
+
 export interface AdvancedResponse {
   inference: Inference;
   risk_structure: RiskStructure;
   volatility: VolatilityBlock;
   regimes: Regimes;
   walk_forward: WalkForward;
+  regime_ml: RegimeML;
   factors: Factors;
 }
 

@@ -237,6 +237,7 @@ def run_advanced(
                 returns, weights, periods_per_year=periods, cap_weights=cap_weights
             ),
         ),
+        "regime_ml": _block("regime_ml", lambda: walkforward.regime_overview(returns, periods)),
         # Already returns its own availability flag rather than raising.
         "factors": run_factor_analysis(port_ret, bench_returns, period, periods),
     })

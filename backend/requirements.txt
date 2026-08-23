@@ -11,3 +11,4 @@ pydantic==2.9.2
 python-multipart==0.0.9
 cachetools==5.5.0
 alpaca-py==0.33.1
+scikit-learn==1.9.0
