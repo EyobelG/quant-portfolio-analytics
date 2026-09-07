@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import AdvisorPanel from "./components/AdvisorPanel";
 import BacktestChart from "./components/BacktestChart";
 import BlackLittermanPanel from "./components/BlackLittermanPanel";
 import BrokerPanel from "./components/BrokerPanel";
@@ -161,6 +162,10 @@ export default function App() {
 
         <section className="results">
           {error && <div className="error-box">{error}</div>}
+
+          <div id="advisor">
+            <AdvisorPanel apiBase={API_BASE} />
+          </div>
 
           {!result && !error && !loading && (
             <div className="empty-state">

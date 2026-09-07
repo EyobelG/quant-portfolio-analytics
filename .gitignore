@@ -13,3 +13,7 @@ venv/
 
 # Scratch worktrees created by background agents
 .claude/worktrees/
+
+# Go
+agent/financial-advisor
+agent/*.exe

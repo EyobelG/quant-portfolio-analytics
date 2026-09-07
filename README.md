@@ -68,6 +68,15 @@ Every headline metric is a point estimate from one finite, non-normal, autocorre
 
 Multi-factor regression against market, size, value, momentum, quality and low-volatility spreads built from liquid ETFs, with **Newey-West** HAC standard errors implemented by hand. Single-index Jensen's alpha credits the manager for every style tilt in the book; this separates the tilts from what is left over.
 
+### AI Portfolio Strategist
+
+A multi-agent financial advisor, adapted from Google's [ADK financial-advisor sample](https://github.com/google/adk-samples/tree/main/go/agents/financial-advisor), running as a separate Go service (`agent/`). Ask about one ticker and a coordinator orchestrates four Gemini-backed personas in sequence:
+
+- **Data Analyst** — calls this repo's own `/api/ticker/{ticker}/metrics` endpoint (price, volatility, drawdown, factor loadings, ML regime label) as a function tool, so every downstream persona argues from the same real numbers rather than the model's training data.
+- **Growth Strategist**, **Macro Risk Assessor**, **Value Investor** — each takes a stance grounded in the data analyst's output, with instructions enforcing zero filler and a number behind every claim.
+
+The FastAPI backend proxies `/api/advisor/*` to the Go service's SSE API, so the browser only ever talks to one origin.
+
 ### Also included
 
 Risk metrics (Sharpe, Sortino, max drawdown, VaR/CVaR, beta, alpha), the efficient frontier with the current portfolio plotted against it, a correlation heatmap, an underwater plot, sector composition, shareable URLs, and **PDF export** via a print stylesheet — charts stay vector, not screenshots.
@@ -96,12 +105,19 @@ backend/          FastAPI service
     regimes.py      correlation and beta split by market regime
     blacklitterman.py  equilibrium prior, views, posterior frontier
     broker.py       Alpaca paper-trading client and rebalance order diffing
+    ticker_metrics.py  single-ticker snapshot for the AI advisor's data analyst
+    advisor.py      proxies /api/advisor/* to the Go agent service's SSE API
   tests/            108 tests, seeded
 
 frontend/         React + TypeScript + Vite
   src/
     App.tsx       layout and API integration
-    components/   builder, metrics grid, charts, analytics panels
+    components/   builder, metrics grid, charts, analytics panels, AdvisorPanel
+
+agent/            Go ADK multi-agent financial advisor (separate service)
+  main.go           coordinator wiring, launched via ADK's web/api launcher
+  agents/           data analyst + growth/macro/value personas, prompts
+  agents/quantmetrics/  function tool calling the backend's ticker snapshot
 ```
 
 A single `POST /api/analyze` call returns metrics, optimization results, and the backtest together, so the UI renders in one round trip. Price downloads are cached for an hour to stay well within Yahoo Finance's rate limits.
@@ -173,6 +189,14 @@ Split from `/api/analyze` deliberately: this path fits a GARCH model by maximum 
 
 Takes the portfolio plus a `views` array — each view `absolute` or `relative`, with a target return and a 0-1 confidence. Returns equilibrium and posterior expected returns, market and posterior-optimal weights, and both frontiers.
 
+### `GET /api/ticker/{ticker}/metrics`
+
+Single-ticker snapshot (not portfolio-shaped): last price, annualized return and volatility, max drawdown, trailing P/E, dividend yield, ML regime classification, and factor loadings. Backs the AI advisor's data analyst persona, and is a plain REST endpoint anyone can call directly.
+
+### `POST /api/advisor/session`, `POST /api/advisor/chat`
+
+Bridge to the Go agent service. `session` creates an ADK session for a `user_id`; `chat` forwards a message over SSE and streams back each persona's response as it's generated. See the AI Portfolio Strategist section above for the agent architecture.
+
 Interactive docs are served at `/docs`.
 
 ---
@@ -207,7 +231,13 @@ CI runs the suite plus a frontend typecheck and build on every push.
 1. Sign in at [render.com](https://render.com) with GitHub.
 2. **New → Blueprint**, select this repository, and apply.
 
-Render builds `quant-portfolio-api` (Python web service) and `quant-portfolio-web` (static site). On the free tier the API sleeps after ~15 minutes idle, so the first request after a pause takes roughly 50 seconds to wake it.
+Render builds `quant-portfolio-api` (Python web service), `quant-financial-advisor` (the Go agent, Docker), and `quant-portfolio-web` (static site). On the free tier the API sleeps after ~15 minutes idle, so the first request after a pause takes roughly 50 seconds to wake it.
+
+**AI Portfolio Strategist (required for that panel to work):** the Go agent calls Gemini and needs an API key, set on the **`quant-financial-advisor`** service (Render dashboard → service → Environment — not in `render.yaml`):
+
+- `GOOGLE_API_KEY` — a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey). The free tier is rate-limited (5 requests/minute at time of writing); a paid key removes that ceiling.
+
+Without it set, the agent service starts but every chat turn returns a "quota exceeded" or auth error, and the panel surfaces that error inline rather than hanging.
 
 **Paper trading (optional):** the "Paper Trading" panel places orders through Alpaca's paper (simulated) trading API. It's inert until two secret env vars are set on the **`quant-portfolio-api`** service (Render dashboard → service → Environment — not in `render.yaml`, and not on the static frontend service):
 

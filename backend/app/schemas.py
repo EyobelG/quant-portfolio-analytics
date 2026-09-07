@@ -178,3 +178,13 @@ class OrderPreviewIn(BaseModel):
 
 class RebalanceSubmitRequest(BaseModel):
     orders: list[OrderPreviewIn] = Field(min_length=1, max_length=25)
+
+
+class AdvisorSessionRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=200)
+
+
+class AdvisorChatRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=200)
+    session_id: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=4000)

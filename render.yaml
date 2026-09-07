@@ -10,6 +10,29 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.3
+      # Internal URL of the financial-advisor Go service, so the FastAPI
+      # bridge (app/advisor.py) can forward /api/advisor/* to it.
+      - key: FINANCIAL_ADVISOR_HOST
+        fromService:
+          type: web
+          name: quant-financial-advisor
+          property: hostport
+
+  - type: web
+    name: quant-financial-advisor
+    runtime: docker
+    rootDir: agent
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      # Public URL of quant-portfolio-api, so the agent's quant_metrics tool
+      # can call it back for ticker snapshots.
+      - key: QUANTFOLIO_BACKEND_URL
+        value: https://quant-portfolio-api.onrender.com
+      # Gemini API key for the ADK models (gemini.NewModel reads this).
+      # Set manually in the Render dashboard -- never commit it here.
+      - key: GOOGLE_API_KEY
+        sync: false
 
   - type: web
     name: quant-portfolio-web

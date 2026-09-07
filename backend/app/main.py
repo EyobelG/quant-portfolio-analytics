@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import broker, sectors
+from app import advisor, broker, sectors
 from app.advanced import cap_weight_panel, run_advanced
 from app.analytics import drawdown_series, return_distribution, sector_weights
 from app.backtest import run_backtest
@@ -11,6 +11,7 @@ from app.blacklitterman import run_black_litterman
 from app.data import fetch_meta, fetch_prices, fetch_returns
 from app.metrics import compute_metrics, portfolio_returns
 from app.optimize import run_optimization
+from app.ticker_metrics import build_ticker_metrics
 from app.schemas import (
     AnalyzeResponse,
     BlackLittermanRequest,
@@ -33,6 +34,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(advisor.router)
 
 
 @app.get("/health")
@@ -119,6 +123,18 @@ def analyze(req: PortfolioRequest):
         "distribution": return_distribution(port_ret),
         "composition": composition,
     }
+
+
+@app.get("/api/ticker/{ticker}/metrics")
+def ticker_metrics(ticker: str, period: str = "3y"):
+    """Single-ticker snapshot for the financial-advisor agent's data analyst.
+
+    Not portfolio-shaped like `/api/analyze` — one symbol, one weight (1.0).
+    """
+    try:
+        return build_ticker_metrics(ticker, period)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @app.post("/api/advanced")

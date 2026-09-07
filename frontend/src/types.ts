@@ -443,3 +443,9 @@ export interface BrokerOrder {
   submitted_at: string | null;
   filled_at: string | null;
 }
+
+export interface AdvisorMessage {
+  id: string;
+  author: string;
+  text: string;
+}
