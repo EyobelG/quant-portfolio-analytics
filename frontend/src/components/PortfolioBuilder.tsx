@@ -10,6 +10,7 @@ const SUGGESTIONS: { ticker: string; name: string }[] = [
   { ticker: "AGG", name: "US Aggregate Bond ETF" },
   { ticker: "GLD", name: "Gold ETF" },
   { ticker: "NVDA", name: "NVIDIA" },
+  { ticker: "ANT", name: "Anthropic" },
   { ticker: "AAPL", name: "Apple" },
   { ticker: "MSFT", name: "Microsoft" },
   { ticker: "AMZN", name: "Amazon" },

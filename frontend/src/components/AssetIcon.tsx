@@ -1,7 +1,8 @@
-// Icons are drawn inline rather than fetched: no external requests, no broken
-// images when a logo host blocks hotlinking, and no third-party marks shipped
-// for companies. Crypto gets its own recognizable colors; everything else gets
-// a monogram tinted by sector.
+import { useState } from "react";
+
+// Crypto gets recognizable currency colors; major companies get their real
+// logo (fetched from a public logo CDN, keyed by domain); everything else
+// falls back to a monogram tinted by sector.
 
 const CRYPTO_BRAND: Record<string, { bg: string; symbol: string }> = {
   "BTC-USD": { bg: "#f7931a", symbol: "₿" },
@@ -11,6 +12,35 @@ const CRYPTO_BRAND: Record<string, { bg: string; symbol: string }> = {
   "XRP-USD": { bg: "#23292f", symbol: "✕" },
   "ADA-USD": { bg: "#0033ad", symbol: "₳" },
   "LTC-USD": { bg: "#a6a9aa", symbol: "Ł" },
+};
+
+const LOGO_DOMAIN: Record<string, string> = {
+  AAPL: "apple.com",
+  MSFT: "microsoft.com",
+  NVDA: "nvidia.com",
+  AMZN: "amazon.com",
+  GOOGL: "abc.xyz",
+  GOOG: "abc.xyz",
+  META: "meta.com",
+  TSLA: "tesla.com",
+  NFLX: "netflix.com",
+  "BRK-B": "berkshirehathaway.com",
+  JPM: "jpmorganchase.com",
+  JNJ: "jnj.com",
+  XOM: "exxonmobil.com",
+  KO: "coca-colacompany.com",
+  V: "visa.com",
+  MA: "mastercard.com",
+  WMT: "walmart.com",
+  DIS: "disney.com",
+  ORCL: "oracle.com",
+  CRM: "salesforce.com",
+  ADBE: "adobe.com",
+  AMD: "amd.com",
+  INTC: "intel.com",
+  CSCO: "cisco.com",
+  IBM: "ibm.com",
+  ANT: "anthropic.com",
 };
 
 const SECTOR_TINT: Record<string, string> = {
@@ -40,10 +70,27 @@ export default function AssetIcon({
   sector?: string | null;
   size?: number;
 }) {
-  const brand = CRYPTO_BRAND[ticker.toUpperCase()];
+  const [logoFailed, setLogoFailed] = useState(false);
+  const upper = ticker.toUpperCase();
+  const brand = CRYPTO_BRAND[upper];
+  const domain = LOGO_DOMAIN[upper];
   const bg = brand?.bg ?? SECTOR_TINT[sector ?? ""] ?? "#2a3142";
   // Crypto shows its currency symbol; everything else the first two letters.
   const label = brand?.symbol ?? ticker.replace(/[^A-Z]/gi, "").slice(0, 2).toUpperCase();
+
+  if (domain && !logoFailed) {
+    return (
+      <img
+        className="asset-icon asset-icon-logo"
+        src={`https://logo.clearbit.com/${domain}?size=${size * 2}`}
+        alt=""
+        width={size}
+        height={size}
+        style={{ width: size, height: size, borderRadius: "50%", background: "#fff" }}
+        onError={() => setLogoFailed(true)}
+      />
+    );
+  }
 
   return (
     <span

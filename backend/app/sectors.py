@@ -55,6 +55,7 @@ SECTORS: dict[str, str] = {
     "PLTR": "Technology",
     "SMCI": "Technology",
     "MU": "Technology",
+    "ANT": "Technology",
     # Communication Services
     "GOOGL": "Communication Services",
     "GOOG": "Communication Services",
