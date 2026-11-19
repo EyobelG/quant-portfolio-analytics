@@ -82,7 +82,7 @@ export default function AssetIcon({
     return (
       <img
         className="asset-icon asset-icon-logo"
-        src={`https://logo.clearbit.com/${domain}?size=${size * 2}`}
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=${size * 2}`}
         alt=""
         width={size}
         height={size}
